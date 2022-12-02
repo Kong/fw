@@ -21,12 +21,19 @@ func Test_parseServerUris(t *testing.T) {
 	}
 	expected := []url.URL{
 		{
+			Scheme: "http",
+			Host:   "cookiemonster.com",
+			Path:   "/chocolate/cookie",
+		}, {
 			Scheme: "https",
 			Host:   "konghq.com",
 			Path:   "/bitter/sweet",
 		},
 	}
-	targets := parseServerUris(servers)
+	targets, err := parseServerUris(servers)
+	if err != nil {
+		t.Errorf("did not expect error: %v", err)
+	}
 	if diff := cmp.Diff(targets, expected); diff != "" {
 		t.Errorf(diff)
 	}
@@ -55,14 +62,42 @@ func Test_parseServerUris(t *testing.T) {
 			Path:   "/chocolate/cookie",
 		},
 	}
-	targets = parseServerUris(servers)
+	targets, err = parseServerUris(servers)
+	if err != nil {
+		t.Errorf("did not expect error: %v", err)
+	}
 	if diff := cmp.Diff(targets, expected); diff != "" {
 		t.Errorf(diff)
 	}
 
 	// returns error on a bad URL
-	// TODO: requires signature change
+
+	servers = &openapi3.Servers{
+		{
+			URL: "http://cookiemonster.com/chocolate/cookie",
+		}, {
+			URL: "not really a url...",
+		},
+	}
+	_, err = parseServerUris(servers)
+	if err == nil {
+		t.Error("expected an error")
+	}
 
 	// returns error if servers is empty
+
+	servers = &openapi3.Servers{}
+	_, err = parseServerUris(servers)
+	if err == nil {
+		t.Error("expected an error")
+	}
+
+	// returns error if servers is nil
+
+	servers = nil
+	_, err = parseServerUris(servers)
+	if err == nil {
+		t.Error("expected an error")
+	}
 
 }
