@@ -12,14 +12,16 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// type KongService struct {
-// 	Servers  *openapi3.Servers // the OpenAPI servers block this service is created from
-// 	Defaults *interface{}      // the defaults from `x-kong-service-defaults`
-// }
+// parses the server uri's after rendering the template variables.
+// The Servers property must at least have 1 entry.
+func parseServerUris(servers *openapi3.Servers) ([]url.URL, error) {
+	var targets []url.URL
 
-// parses the server uri's after rendering the template variables
-func parseServerUris(servers *openapi3.Servers) []url.URL {
-	targets := make([]url.URL, len(*servers))
+	if servers == nil || len(*servers) == 0 {
+		return targets, fmt.Errorf("no urls have been specified in the servers block")
+	}
+
+	targets = make([]url.URL, len(*servers))
 
 	for i, server := range *servers {
 		uri_string := server.URL
@@ -29,15 +31,13 @@ func parseServerUris(servers *openapi3.Servers) []url.URL {
 
 		uri_obj, err := url.ParseRequestURI(uri_string)
 		if err != nil {
-			log.Fatalf(fmt.Sprintf("failed to parse uri '%s'; %%w", uri_string), err)
+			return targets, fmt.Errorf("failed to parse uri '%s'; %w", uri_string, err)
 		}
 
 		targets[i] = *uri_obj
 	}
-	if len(targets) == 0 {
-		log.Fatal("No urls have been defined in 'servers'")
-	}
-	return targets
+
+	return targets, nil
 }
 
 // Creates a new Kong service entity, and optional upstream.
@@ -63,8 +63,11 @@ func CreateKongService(
 	service["tags"] = tags
 	service["routes"] = make([]interface{}, 0)
 
-	// the server urls, will have minimum 1 entry
-	targets := parseServerUris(servers)
+	// the server urls, will have minimum 1 entry on success
+	targets, err := parseServerUris(servers)
+	if err != nil {
+		log.Fatal("failed to create service: %w", err)
+	}
 
 	service["protocol"] = targets[0].Scheme
 	service["path"] = targets[0].Path
