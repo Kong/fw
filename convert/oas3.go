@@ -70,6 +70,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	// determine document name, precedence: specified -> x-kong-name -> Info.Title
 	if opts.DocName == "" {
 		if doc.ExtensionProps.Extensions["x-kong-name"] != nil {
+			// TODO: the access below is unsafe if intermediate levels do not exist and might cause a panic (check other instances as well!)
 			err = json.Unmarshal(doc.ExtensionProps.Extensions["x-kong-name"].(json.RawMessage), &opts.DocName)
 			if err != nil {
 				return nil, fmt.Errorf("expected 'x-kong-name' to be a string; %w", err)
@@ -80,6 +81,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// for defaults we keep strings, so deserializing them provides a copy right away
+	// TODO: extract this as a function, and validate the JSON to be a proper object
 	if doc.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
 		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-service-defaults"])
 		docServiceDefaults = string(jsonblob)
@@ -87,6 +89,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		docServiceDefaults = "{}" // just empty JSON object
 	}
 
+	// TODO: extract this as a function, and validate the JSON to be a proper object
 	if doc.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
 		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-upstream-defaults"])
 		docUpstreamDefaults = string(jsonblob)
