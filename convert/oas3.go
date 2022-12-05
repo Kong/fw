@@ -34,20 +34,28 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	services := make([]interface{}, 0)
 	upstreams := make([]interface{}, 0)
 
-	var err error
-	var doc *openapi3.T // The OAS3 document we're operating on
+	var (
+		err error
+		doc *openapi3.T // The OAS3 document we're operating on
 
-	var doc_servers *openapi3.Servers // servers block on document level
-	var doc_service map[string]interface{}
-	var doc_upstream map[string]interface{}
+		doc_servers           *openapi3.Servers      // servers block on document level
+		doc_service_defaults  string                 // JSON string representation of service-defaults on document level
+		doc_service           map[string]interface{} // service entity in use on document level
+		doc_upstream_defaults string                 // JSON string representation of upstream-defaults on document level
+		doc_upstream          map[string]interface{} // upstream entity in use on document level
 
-	var path_servers *openapi3.Servers // servers block on current path level
-	var path_service map[string]interface{}
-	var path_upstream map[string]interface{}
+		path_servers           *openapi3.Servers      // servers block on current path level
+		path_service_defaults  string                 // JSON string representation of service-defaults on path level
+		path_service           map[string]interface{} // service entity in use on path level
+		path_upstream_defaults string                 // JSON string representation of upstream-defaults on path level
+		path_upstream          map[string]interface{} // upstream entity in use on path level
 
-	var operation_servers *openapi3.Servers // servers block on current operation level
-	var operation_service map[string]interface{}
-	var operation_upstream map[string]interface{}
+		operation_servers           *openapi3.Servers      // servers block on current operation level
+		operation_service_defaults  string                 // JSON string representation of service-defaults on operation level
+		operation_service           map[string]interface{} // service entity in use on operation level
+		operation_upstream_defaults string                 // JSON string representation of upstream-defaults on operation level
+		operation_upstream          map[string]interface{} // upstream entity in use on operation level
+	)
 
 	// Load and parse the OAS file
 	loader := openapi3.NewLoader()
@@ -72,7 +80,6 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// for defaults we keep strings, so deserializing them provides a copy right away
-	var doc_service_defaults string // string representation of service-defaults on document level
 	if doc.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
 		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-service-defaults"])
 		doc_service_defaults = string(jsonblob)
@@ -80,7 +87,6 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		doc_service_defaults = "{}" // just empty JSON object
 	}
 
-	var doc_upstream_defaults string // string representation of upstream-defaults on document level
 	if doc.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
 		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-upstream-defaults"])
 		doc_upstream_defaults = string(jsonblob)
@@ -104,7 +110,6 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 		// Set up the defaults on the Path level
 		new_service := false
-		var path_service_defaults string // string representation of service-defaults on path level
 		if pathitem.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
 			jsonblob, _ := json.Marshal(pathitem.ExtensionProps.Extensions["x-kong-service-defaults"])
 			path_service_defaults = string(jsonblob)
@@ -113,7 +118,6 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			path_service_defaults = doc_service_defaults
 		}
 
-		var path_upstream_defaults string // string representation of upstream-defaults on path level
 		if pathitem.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
 			jsonblob, _ := json.Marshal(pathitem.ExtensionProps.Extensions["x-kong-upstream-defaults"])
 			path_upstream_defaults = string(jsonblob)
@@ -162,7 +166,6 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 			// Set up the defaults on the Operation level
 			new_service := false
-			var operation_service_defaults string // string representation of service-defaults on operation level
 			if operation.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
 				jsonblob, _ := json.Marshal(operation.ExtensionProps.Extensions["x-kong-service-defaults"])
 				operation_service_defaults = string(jsonblob)
@@ -171,7 +174,6 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				operation_service_defaults = path_service_defaults
 			}
 
-			var operation_upstream_defaults string // string representation of upstream-defaults on operation level
 			if operation.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
 				jsonblob, _ := json.Marshal(operation.ExtensionProps.Extensions["x-kong-upstream-defaults"])
 				operation_upstream_defaults = string(jsonblob)

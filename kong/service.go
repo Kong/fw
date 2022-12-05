@@ -123,8 +123,10 @@ func CreateKongService(
 	tags []string,
 	uuid_namespace uuid.UUID) (map[string]interface{}, map[string]interface{}, error) {
 
-	var service map[string]interface{}
-	var upstream map[string]interface{}
+	var (
+		service  map[string]interface{}
+		upstream map[string]interface{}
+	)
 
 	// setup the defaults
 	json.Unmarshal([]byte(service_defaults), &service)
