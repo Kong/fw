@@ -11,7 +11,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// parses the server uri's after rendering the template variables.
+// parseServerUris parses the server uri's after rendering the template variables.
 // result will always have at least 1 entry, but not necessarily a hostname/port/scheme
 func parseServerUris(servers *openapi3.Servers) ([]*url.URL, error) {
 	var targets []*url.URL
@@ -42,7 +42,7 @@ func parseServerUris(servers *openapi3.Servers) ([]*url.URL, error) {
 	return targets, nil
 }
 
-// sets the scheme and port if missing.
+// setServerDefaults sets the scheme and port if missing and inferable.
 // It's set based on; scheme given, port (80/443), default_scheme. In that order.
 func setServerDefaults(targets []*url.URL, scheme_default string) {
 	for _, target := range targets {
@@ -73,7 +73,7 @@ func setServerDefaults(targets []*url.URL, scheme_default string) {
 	}
 }
 
-// Create a new upstream
+// createKongUpstream create a new upstream entity.
 func createKongUpstream(base_name string, // name of the service (will be slugified), and uuid input
 	servers *openapi3.Servers, // the OAS3 server block to use for generation
 	upstream_defaults string, // defaults to use (JSON string) or empty if no defaults
@@ -112,7 +112,7 @@ func createKongUpstream(base_name string, // name of the service (will be slugif
 	return upstream, nil
 }
 
-// Creates a new Kong service entity, and optional upstream.
+// CreateKongService creates a new Kong service entity, and optional upstream.
 // `base_name` will be used as the name of the service (slugified), and as input
 // for the UUIDv5 generation.
 func CreateKongService(

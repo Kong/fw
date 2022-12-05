@@ -62,7 +62,8 @@ func readFile(filename string) []byte {
 
 func main() {
 	// constants for now:
-	filename := "learnservice_oas.yaml"
+	filenameIn := "learnservice_oas.yaml"
+	filenameOut := "/dev/stdout"
 	asYaml := true
 	tags := []string{"tag1", "tag2"}
 	docName := ""
@@ -75,12 +76,12 @@ func main() {
 		UuidNamespace: uuidNamespace,
 	}
 
-	content := readFile(filename)
+	content := readFile(filenameIn)
 
 	result, err := convert.ConvertOas3(&content, options)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	writeFile("/dev/stdout", serialize(result, asYaml))
+	writeFile(filenameOut, serialize(result, asYaml))
 }

@@ -9,14 +9,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// structure defining the options for an O2K conversion operation
+// O2KOptions defines the options for an O2K conversion operation
 type O2kOptions struct {
 	Tags          []string  // Array of tags to mark all generated entities with
 	DocName       string    // Base document name, will be taken from x-kong-name, or info.title (used for UUID generation!)
 	UuidNamespace uuid.UUID // Namespace for UUID generation, defaults to DNS namespace for UUID v5
 }
 
-// sets the default for the options
+// setDefaults sets the defaults for ConvertOas3 operation.
 func (opts *O2kOptions) setDefaults() {
 	var empty_uuid uuid.UUID
 	if uuid.Equal(empty_uuid, opts.UuidNamespace) {
@@ -24,7 +24,7 @@ func (opts *O2kOptions) setDefaults() {
 	}
 }
 
-// Converts an OpenAPI spec to a Kong declarative file
+// ConvertOas3 converts an OpenAPI spec to a Kong declarative file.
 func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 	opts.setDefaults()
 
