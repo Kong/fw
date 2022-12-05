@@ -19,7 +19,7 @@ func Test_parseServerUris(t *testing.T) {
 			URL: "https://konghq.com/bitter/sweet",
 		},
 	}
-	expected := []url.URL{
+	expected := []*url.URL{
 		{
 			Scheme: "http",
 			Host:   "cookiemonster.com",
@@ -55,7 +55,7 @@ func Test_parseServerUris(t *testing.T) {
 			},
 		},
 	}
-	expected = []url.URL{
+	expected = []*url.URL{
 		{
 			Scheme: "http",
 			Host:   "hello-Welt.com",
@@ -84,20 +84,60 @@ func Test_parseServerUris(t *testing.T) {
 		t.Error("expected an error")
 	}
 
-	// returns error if servers is empty
+	// returns no error if servers is empty
 
-	servers = &openapi3.Servers{}
-	_, err = parseServerUris(servers)
-	if err == nil {
-		t.Error("expected an error")
+	expected = []*url.URL{
+		{
+			Path: "/",
+		},
+	}
+	targets, err = parseServerUris(&openapi3.Servers{})
+	if err != nil {
+		t.Errorf("did not expect error: %v", err)
+	}
+	if diff := cmp.Diff(targets, expected); diff != "" {
+		t.Errorf(diff)
 	}
 
-	// returns error if servers is nil
+	// returns no error if servers is nil
 
-	servers = nil
-	_, err = parseServerUris(servers)
-	if err == nil {
-		t.Error("expected an error")
+	expected = []*url.URL{
+		{
+			Path: "/",
+		},
+	}
+	targets, err = parseServerUris(nil)
+	if err != nil {
+		t.Errorf("did not expect error: %v", err)
+	}
+	if diff := cmp.Diff(targets, expected); diff != "" {
+		t.Errorf(diff)
 	}
 
+}
+
+func Test_setServerDefaults(t *testing.T) {
+
+	defaultTests := []struct {
+		name      string
+		inUrl     string
+		outPort   string
+		outScheme string
+	}{
+		{"adds default scheme", "//host/path", "443", "https"},
+		{"adds port 80 for http", "http://host/path", "80", "http"},
+		{"adds port 443 for https", "https://host/path", "443", "https"},
+	}
+
+	for _, tst := range defaultTests {
+		inUrl, _ := url.Parse(tst.inUrl)
+		urls := []*url.URL{inUrl}
+		setServerDefaults(urls, "https")
+		if urls[0].Port() != tst.outPort {
+			t.Errorf("%s: expected port to be '%s', but got '%s'", tst.name, tst.outPort, urls[0].Port())
+		}
+		if urls[0].Scheme != tst.outScheme {
+			t.Errorf("%s: expected scheme to be '%s', but got '%s'", tst.name, tst.outScheme, urls[0].Scheme)
+		}
+	}
 }

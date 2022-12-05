@@ -4,19 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"fw/kong"
-	"log"
-	"os"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	uuid "github.com/satori/go.uuid"
-	"gopkg.in/yaml.v3"
 )
 
 // structure defining the options for an O2K conversion operation
 type O2kOptions struct {
-	FilenameIn    string    // Filename to read the OAS spec from (eg. "/dev/stdin")
-	FilenameOut   string    // Filename to write the output to (eg. "/dev/stdout")
-	ExportYaml    bool      // By default export format is json
 	Tags          []string  // Array of tags to mark all generated entities with
 	DocName       string    // Base document name, will be taken from x-kong-name, or info.title (used for UUID generation!)
 	UuidNamespace uuid.UUID // Namespace for UUID generation, defaults to DNS namespace for UUID v5
@@ -24,12 +18,6 @@ type O2kOptions struct {
 
 // sets the default for the options
 func (opts *O2kOptions) setDefaults() {
-	if opts.FilenameIn == "" {
-		opts.FilenameIn = "/dev/stdin"
-	}
-	if opts.FilenameOut == "" {
-		opts.FilenameOut = "/dev/stdout"
-	}
 	var empty_uuid uuid.UUID
 	if uuid.Equal(empty_uuid, opts.UuidNamespace) {
 		opts.UuidNamespace = uuid.NamespaceDNS
@@ -37,7 +25,7 @@ func (opts *O2kOptions) setDefaults() {
 }
 
 // Converts an OpenAPI spec to a Kong declarative file
-func ConvertOas3(opts O2kOptions) (bool, error) {
+func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 	opts.setDefaults()
 
 	// set up output document
@@ -47,22 +35,25 @@ func ConvertOas3(opts O2kOptions) (bool, error) {
 	upstreams := make([]interface{}, 0)
 
 	var err error
-	var doc *openapi3.T               // The OAS3 document we're operating on
+	var doc *openapi3.T // The OAS3 document we're operating on
+
 	var doc_servers *openapi3.Servers // servers block on document level
 	var doc_service map[string]interface{}
 	var doc_upstream map[string]interface{}
+
 	var path_servers *openapi3.Servers // servers block on current path level
 	var path_service map[string]interface{}
 	var path_upstream map[string]interface{}
+
 	var operation_servers *openapi3.Servers // servers block on current operation level
 	var operation_service map[string]interface{}
 	var operation_upstream map[string]interface{}
 
 	// Load and parse the OAS file
 	loader := openapi3.NewLoader()
-	doc, err = loader.LoadFromFile(opts.FilenameIn)
+	doc, err = loader.LoadFromData(*content)
 	if err != nil {
-		return false, fmt.Errorf("error parsing OAS3 file: [%w]", err)
+		return nil, fmt.Errorf("error parsing OAS3 file: [%w]", err)
 	}
 
 	// set document level elements
@@ -73,7 +64,7 @@ func ConvertOas3(opts O2kOptions) (bool, error) {
 		if doc.ExtensionProps.Extensions["x-kong-name"] != nil {
 			err = json.Unmarshal(doc.ExtensionProps.Extensions["x-kong-name"].(json.RawMessage), &opts.DocName)
 			if err != nil {
-				log.Fatal("expected 'x-kong-name' to be a string; %w", err)
+				return nil, fmt.Errorf("expected 'x-kong-name' to be a string; %w", err)
 			}
 		} else {
 			opts.DocName = doc.Info.Title
@@ -98,7 +89,10 @@ func ConvertOas3(opts O2kOptions) (bool, error) {
 	}
 
 	// create the top-level doc_service and (optional) doc_upstream
-	doc_service, doc_upstream = kong.CreateKongService(opts.DocName, doc_servers, doc_service_defaults, doc_upstream_defaults, opts.Tags, opts.UuidNamespace)
+	doc_service, doc_upstream, err = kong.CreateKongService(opts.DocName, doc_servers, doc_service_defaults, doc_upstream_defaults, opts.Tags, opts.UuidNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create service/updstream from document root: %w", err)
+	}
 	services = append(services, doc_service)
 	if doc_upstream != nil {
 		upstreams = append(upstreams, doc_upstream)
@@ -140,13 +134,16 @@ func ConvertOas3(opts O2kOptions) (bool, error) {
 		if new_service {
 			// create the path-level service and (optional) upstream
 			// TODO: the path ends up with / in the hostname of the service
-			path_service, path_upstream = kong.CreateKongService(
+			path_service, path_upstream, err = kong.CreateKongService(
 				opts.DocName+"_"+path,
 				path_servers,
 				path_service_defaults,
 				path_upstream_defaults,
 				opts.Tags,
 				opts.UuidNamespace)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create service/updstream from path '%s': %w", path, err)
+			}
 			services = append(services, path_service)
 			if path_upstream != nil {
 				upstreams = append(upstreams, path_upstream)
@@ -195,13 +192,16 @@ func ConvertOas3(opts O2kOptions) (bool, error) {
 			if new_service {
 				// create the operation-level service and (optional) upstream
 				// TODO: the path ends up with / in the hostname of the service
-				operation_service, operation_upstream = kong.CreateKongService(
+				operation_service, operation_upstream, err = kong.CreateKongService(
 					opts.DocName+"_"+path+"_"+method, //TODO: use operation ID if available
 					operation_servers,
 					operation_service_defaults,
 					operation_upstream_defaults,
 					opts.Tags,
 					opts.UuidNamespace)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create service/updstream from operation '%s %s': %w", path, method, err)
+				}
 				services = append(services, operation_service)
 				if operation_upstream != nil {
 					upstreams = append(upstreams, operation_upstream)
@@ -235,33 +235,6 @@ func ConvertOas3(opts O2kOptions) (bool, error) {
 	result["services"] = services
 	result["upstreams"] = upstreams
 
-	// TODO: this library should return the document, writing to json/yaml should be part
-	// of the cli wrapper. Probably same for the inputs.
-	// encode output as either JSON or YAML
-	var str []byte
-	if opts.ExportYaml {
-		str, err = yaml.Marshal(result)
-		if err != nil {
-			log.Fatal("failed to yaml-serialize the resulting file; %w", err)
-		}
-	} else {
-		str, err = json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			log.Fatal("failed to json-serialize the resulting file; %w", err)
-		}
-	}
-
-	// write to file
-	f, err := os.Create(opts.FilenameOut)
-	if err != nil {
-		log.Fatalf("failed to create output file '%s'", opts.FilenameOut)
-	}
-	defer f.Close()
-	_, err = f.Write(str)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("failed to write to output file '%s'; %%w", opts.FilenameOut), err)
-	}
-
 	// we're done!
-	return true, nil
+	return result, nil
 }
