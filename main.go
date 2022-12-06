@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"fw/convert"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -12,7 +11,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// serialize will serialize the result as a JSON/YAML. Will exit with error
+const (
+	defaultJsonIndent = "  "
+)
+
+// serialize will serialize the result as a JSON/YAML. Will panic
 // if serializing fails.
 func serialize(content map[string]interface{}, asYaml bool) []byte {
 	var (
@@ -26,7 +29,7 @@ func serialize(content map[string]interface{}, asYaml bool) []byte {
 			log.Fatal("failed to yaml-serialize the resulting file; %w", err)
 		}
 	} else {
-		str, err = json.MarshalIndent(content, "", "  ")
+		str, err = json.MarshalIndent(content, "", defaultJsonIndent)
 		if err != nil {
 			log.Fatal("failed to json-serialize the resulting file; %w", err)
 		}
@@ -35,7 +38,7 @@ func serialize(content map[string]interface{}, asYaml bool) []byte {
 	return str
 }
 
-// writeFile writes the output to a file in JSON/YAML format. Will exit with error
+// writeFile writes the output to a file in JSON/YAML format. Will panic
 // if writing fails.
 func writeFile(filename string, content []byte) {
 
@@ -51,9 +54,9 @@ func writeFile(filename string, content []byte) {
 	}
 }
 
-// readFile reads file contents. Will exit with error if reading fails.
+// readFile reads file contents. Will panic if reading fails.
 func readFile(filename string) []byte {
-	body, err := ioutil.ReadFile(filename)
+	body, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("unable to read file: %v", err)
 	}

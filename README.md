@@ -6,7 +6,6 @@
 
 - testing
 - license information
-- never panic, always return errors
 - customizable logger
 
 ### Code wise

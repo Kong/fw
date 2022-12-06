@@ -9,6 +9,13 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const (
+	formatVersionKey   = "_format_version"
+	formatVersionValue = "3.0"
+
+	emptyJsonObject = "{}"
+)
+
 // O2KOptions defines the options for an O2K conversion operation
 type O2kOptions struct {
 	Tags          []string  // Array of tags to mark all generated entities with
@@ -30,7 +37,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 	// set up output document
 	result := make(map[string]interface{})
-	result["_format_version"] = "3.0"
+	result[formatVersionKey] = formatVersionValue
 	services := make([]interface{}, 0)
 	upstreams := make([]interface{}, 0)
 
@@ -86,7 +93,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-service-defaults"])
 		docServiceDefaults = string(jsonblob)
 	} else {
-		docServiceDefaults = "{}" // just empty JSON object
+		docServiceDefaults = emptyJsonObject
 	}
 
 	// TODO: extract this as a function, and validate the JSON to be a proper object
