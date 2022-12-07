@@ -129,12 +129,15 @@ func CreateKongService(
 	)
 
 	// setup the defaults
-	json.Unmarshal([]byte(serviceDefaults), &service)
+	if serviceDefaults != "" {
+		json.Unmarshal([]byte(serviceDefaults), &service)
+	}
 
 	// add id, name and tags to the service
 	service["id"] = uuid.NewV5(uuidNamespace, baseName+".service").String()
 	service["name"] = Slugify(baseName)
 	service["tags"] = tags
+	service["plugins"] = make([]interface{}, 0)
 	service["routes"] = make([]interface{}, 0)
 
 	// the server urls, will have minimum 1 entry on success

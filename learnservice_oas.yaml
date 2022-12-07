@@ -12,8 +12,9 @@ info:
 servers:
 - url: https://{host}.konghq.com/kongu/api/v1/learn
   # the path variable {host} will be replaced by its default value below.
-  # NOTE: if multiple entries, then only the first one will be used
-  # FR: 'servers' can also be added to "path" and "operation" objects (mimic the OAS 3 spec)
+  # NOTE: if multiple entries, then only the first one will be used to collect the
+  # protocol and path. The other entries will only be used to create Target entities.
+  # done-FR: 'servers' can also be added to "path" and "operation" objects (mimic the OAS 3 spec)
   description: Non production servers
   variables:
     host:

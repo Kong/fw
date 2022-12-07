@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"fw/kong"
+	"regexp"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	uuid "github.com/satori/go.uuid"
@@ -12,8 +14,6 @@ import (
 const (
 	formatVersionKey   = "_format_version"
 	formatVersionValue = "3.0"
-
-	emptyJsonObject = "{}"
 )
 
 // O2KOptions defines the options for an O2K conversion operation
@@ -29,6 +29,36 @@ func (opts *O2kOptions) setDefaults() {
 	if uuid.Equal(emptyUuid, opts.UuidNamespace) {
 		opts.UuidNamespace = uuid.NamespaceDNS
 	}
+}
+
+func isJsonObject(json []byte) bool {
+	return true // TODO: implement
+}
+
+func getXKongObjectDefaults(props openapi3.ExtensionProps, name string) (string, error) {
+	if props.Extensions != nil && props.Extensions[name] != nil {
+		jsonblob, _ := json.Marshal(props.Extensions[name])
+		if !isJsonObject(jsonblob) {
+			return "", fmt.Errorf("expected '%s' to be a JSON object", name)
+		}
+		return string(jsonblob), nil
+	}
+	return "", nil
+}
+
+// getServiceDefaults returns a JSON string containing the defaults
+func getServiceDefaults(props openapi3.ExtensionProps) (string, error) {
+	return getXKongObjectDefaults(props, "x-kong-service-defaults")
+}
+
+// getUpstreamDefaults returns a JSON string containing the defaults
+func getUpstreamDefaults(props openapi3.ExtensionProps) (string, error) {
+	return getXKongObjectDefaults(props, "x-kong-upstream-defaults")
+}
+
+// getRouteDefaults returns a JSON string containing the defaults
+func getRouteDefaults(props openapi3.ExtensionProps) (string, error) {
+	return getXKongObjectDefaults(props, "x-kong-route-defaults")
 }
 
 // ConvertOas3 converts an OpenAPI spec to a Kong declarative file.
@@ -50,18 +80,21 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		docService          map[string]interface{} // service entity in use on document level
 		docUpstreamDefaults string                 // JSON string representation of upstream-defaults on document level
 		docUpstream         map[string]interface{} // upstream entity in use on document level
+		docRouteDefaults    string                 // JSON string representation of route-defaults on document level
 
 		pathServers          *openapi3.Servers      // servers block on current path level
 		pathServiceDefaults  string                 // JSON string representation of service-defaults on path level
 		pathService          map[string]interface{} // service entity in use on path level
 		pathUpstreamDefaults string                 // JSON string representation of upstream-defaults on path level
 		pathUpstream         map[string]interface{} // upstream entity in use on path level
+		pathRouteDefaults    string                 // JSON string representation of route-defaults on path level
 
 		operationServers          *openapi3.Servers      // servers block on current operation level
 		operationServiceDefaults  string                 // JSON string representation of service-defaults on operation level
 		operationService          map[string]interface{} // service entity in use on operation level
 		operationUpstreamDefaults string                 // JSON string representation of upstream-defaults on operation level
 		operationUpstream         map[string]interface{} // upstream entity in use on operation level
+		operationRouteDefaults    string                 // JSON string representation of route-defaults on operation level
 	)
 
 	// Load and parse the OAS file
@@ -88,26 +121,20 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// for defaults we keep strings, so deserializing them provides a copy right away
-	// TODO: extract this as a function, and validate the JSON to be a proper object
-	if doc.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
-		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-service-defaults"])
-		docServiceDefaults = string(jsonblob)
-	} else {
-		docServiceDefaults = emptyJsonObject
+	if docServiceDefaults, err = getServiceDefaults(doc.ExtensionProps); err != nil {
+		return nil, err
 	}
-
-	// TODO: extract this as a function, and validate the JSON to be a proper object
-	if doc.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
-		jsonblob, _ := json.Marshal(doc.ExtensionProps.Extensions["x-kong-upstream-defaults"])
-		docUpstreamDefaults = string(jsonblob)
-	} else {
-		docUpstreamDefaults = ""
+	if docUpstreamDefaults, err = getUpstreamDefaults(doc.ExtensionProps); err != nil {
+		return nil, err
+	}
+	if docRouteDefaults, err = getRouteDefaults(doc.ExtensionProps); err != nil {
+		return nil, err
 	}
 
 	// create the top-level docService and (optional) docUpstream
 	docService, docUpstream, err = kong.CreateKongService(opts.DocName, docServers, docServiceDefaults, docUpstreamDefaults, opts.Tags, opts.UuidNamespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create service/updstream from document root: %w", err)
+		return nil, fmt.Errorf("failed to create service/upstream from document root: %w", err)
 	}
 	services = append(services, docService)
 	if docUpstream != nil {
@@ -118,20 +145,29 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 		// Set up the defaults on the Path level
 		newService := false
-		if pathitem.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
-			jsonblob, _ := json.Marshal(pathitem.ExtensionProps.Extensions["x-kong-service-defaults"])
-			pathServiceDefaults = string(jsonblob)
-			newService = true
-		} else {
+		if pathServiceDefaults, err = getServiceDefaults(pathitem.ExtensionProps); err != nil {
+			return nil, err
+		}
+		if pathServiceDefaults == "" {
 			pathServiceDefaults = docServiceDefaults
+		} else {
+			newService = true
 		}
 
-		if pathitem.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
-			jsonblob, _ := json.Marshal(pathitem.ExtensionProps.Extensions["x-kong-upstream-defaults"])
-			pathUpstreamDefaults = string(jsonblob)
-			newService = true
-		} else {
+		if pathUpstreamDefaults, err = getUpstreamDefaults(pathitem.ExtensionProps); err != nil {
+			return nil, err
+		}
+		if pathUpstreamDefaults == "" {
 			pathUpstreamDefaults = docUpstreamDefaults
+		} else {
+			newService = true
+		}
+
+		if pathRouteDefaults, err = getRouteDefaults(pathitem.ExtensionProps); err != nil {
+			return nil, err
+		}
+		if pathRouteDefaults == "" {
+			pathRouteDefaults = docRouteDefaults
 		}
 
 		// if there is no path level servers block, use the document one
@@ -172,20 +208,29 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 			// Set up the defaults on the Operation level
 			newService := false
-			if operation.ExtensionProps.Extensions["x-kong-service-defaults"] != nil {
-				jsonblob, _ := json.Marshal(operation.ExtensionProps.Extensions["x-kong-service-defaults"])
-				operationServiceDefaults = string(jsonblob)
-				newService = true
-			} else {
+			if operationServiceDefaults, err = getServiceDefaults(operation.ExtensionProps); err != nil {
+				return nil, err
+			}
+			if operationServiceDefaults == "" {
 				operationServiceDefaults = pathServiceDefaults
+			} else {
+				newService = true
 			}
 
-			if operation.ExtensionProps.Extensions["x-kong-upstream-defaults"] != nil {
-				jsonblob, _ := json.Marshal(operation.ExtensionProps.Extensions["x-kong-upstream-defaults"])
-				operationUpstreamDefaults = string(jsonblob)
-				newService = true
-			} else {
+			if operationUpstreamDefaults, err = getUpstreamDefaults(operation.ExtensionProps); err != nil {
+				return nil, err
+			}
+			if operationUpstreamDefaults == "" {
 				operationUpstreamDefaults = pathUpstreamDefaults
+			} else {
+				newService = true
+			}
+
+			if operationRouteDefaults, err = getRouteDefaults(operation.ExtensionProps); err != nil {
+				return nil, err
+			}
+			if operationRouteDefaults == "" {
+				operationRouteDefaults = pathRouteDefaults
 			}
 
 			// if there is no operation level servers block, use the path one
@@ -220,19 +265,31 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				operationRoutes = operationService["routes"].([]interface{})
 			}
 
-			// TODO: add route-defaults on all levels
-
-			// prefix, _ := operationServers.BasePath()
-			// println(method, prefix, path)
-
 			// construct the route
-			route := make(map[string]interface{}) // the newly generated Route // TODO: create it from route-defaults
-			// TODO: create and add a route-name, using operation id
+			var route map[string]interface{}
+			if operationRouteDefaults != "" {
+				json.Unmarshal([]byte(operationRouteDefaults), &route)
+			}
 
 			// TODO: create and add an ID
-			route["paths"] = []string{path} // TODO: convert path to regex before use, or to new router DSL
+			route["id"] = "v5 uuid"
+
+			// TODO: create and add a route-name, using operation id
+			route["name"] = "route-name-tbd"
+
+			// convert path parameters to regex captures
+			re, _ := regexp.Compile("{([^}]+)}")
+			if matches := re.FindAllString(path, -1); matches != nil {
+				for _, varName := range matches {
+					placeHolder := "{" + varName + "}"
+					regexMatch := "(?<" + varName + ">[^/]+)"
+					path = strings.Replace(path, placeHolder, regexMatch, 1)
+				}
+			}
+			route["paths"] = []string{"~" + path + "$"}
 			route["methods"] = []string{method}
 			route["tags"] = opts.Tags
+			route["strip_path"] = false // TODO: there should be some logic around defaults etc iirc
 
 			operationRoutes = append(operationRoutes, route)
 			operationService["routes"] = operationRoutes
