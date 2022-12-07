@@ -15,9 +15,9 @@ const (
 	defaultJsonIndent = "  "
 )
 
-// serialize will serialize the result as a JSON/YAML. Will panic
+// mustSerialize will serialize the result as a JSON/YAML. Will panic
 // if serializing fails.
-func serialize(content map[string]interface{}, asYaml bool) []byte {
+func mustSerialize(content map[string]interface{}, asYaml bool) []byte {
 	var (
 		str []byte
 		err error
@@ -38,9 +38,9 @@ func serialize(content map[string]interface{}, asYaml bool) []byte {
 	return str
 }
 
-// writeFile writes the output to a file in JSON/YAML format. Will panic
+// mustWriteFile writes the output to a file in JSON/YAML format. Will panic
 // if writing fails.
-func writeFile(filename string, content []byte) {
+func mustWriteFile(filename string, content []byte) {
 
 	// write to file
 	f, err := os.Create(filename)
@@ -54,8 +54,8 @@ func writeFile(filename string, content []byte) {
 	}
 }
 
-// readFile reads file contents. Will panic if reading fails.
-func readFile(filename string) []byte {
+// mustReadFile reads file contents. Will panic if reading fails.
+func mustReadFile(filename string) []byte {
 	body, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("unable to read file: %v", err)
@@ -79,12 +79,12 @@ func main() {
 		UuidNamespace: uuidNamespace,
 	}
 
-	content := readFile(filenameIn)
+	content := mustReadFile(filenameIn)
 
 	result, err := convert.ConvertOas3(&content, options)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	writeFile(filenameOut, serialize(result, asYaml))
+	mustWriteFile(filenameOut, mustSerialize(result, asYaml))
 }
