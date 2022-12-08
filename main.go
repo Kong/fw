@@ -65,16 +65,16 @@ func mustReadFile(filename string) []byte {
 
 func main() {
 	// constants for now:
-	filenameIn := "learnservice_oas.yaml"
+	filenameIn := "/dev/stdin"
 	filenameOut := "/dev/stdout"
 	asYaml := true
-	tags := []string{"tag1", "tag2"}
+	// tags := []string{"tag1", "tag2"}
 	docName := ""
 	uuidNamespace := uuid.NamespaceDNS
 
 	// do the work: read/convert/write
 	options := convert.O2kOptions{
-		Tags:          tags,
+		// Tags:          tags,
 		DocName:       docName,
 		UuidNamespace: uuidNamespace,
 	}
