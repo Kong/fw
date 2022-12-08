@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"fw/kong"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -33,6 +34,19 @@ func (opts *O2kOptions) setDefaults() {
 
 func isJsonObject(json []byte) bool {
 	return true // TODO: implement
+}
+
+// getKongName returns the `x-kong-name` property, validated to be a string
+func getKongName(props openapi3.ExtensionProps) (string, error) {
+	if props.Extensions != nil && props.Extensions["x-kong-name"] != nil {
+		var name string
+		err := json.Unmarshal(props.Extensions["x-kong-name"].(json.RawMessage), &name)
+		if err != nil {
+			return "", fmt.Errorf("expected 'x-kong-name' to be a string: %w", err)
+		}
+		return name, nil
+	}
+	return "", nil
 }
 
 func getXKongObjectDefaults(props openapi3.ExtensionProps, name string) (string, error) {
@@ -75,6 +89,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		err error
 		doc *openapi3.T // The OAS3 document we're operating on
 
+		docBaseName         string                 // the slugified basename for the document
 		docServers          *openapi3.Servers      // servers block on document level
 		docServiceDefaults  string                 // JSON string representation of service-defaults on document level
 		docService          map[string]interface{} // service entity in use on document level
@@ -82,6 +97,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		docUpstream         map[string]interface{} // upstream entity in use on document level
 		docRouteDefaults    string                 // JSON string representation of route-defaults on document level
 
+		pathBaseName         string                 // the slugified basename for the path
 		pathServers          *openapi3.Servers      // servers block on current path level
 		pathServiceDefaults  string                 // JSON string representation of service-defaults on path level
 		pathService          map[string]interface{} // service entity in use on path level
@@ -89,6 +105,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		pathUpstream         map[string]interface{} // upstream entity in use on path level
 		pathRouteDefaults    string                 // JSON string representation of route-defaults on path level
 
+		operationBaseName         string                 // the slugified basename for the operation
 		operationServers          *openapi3.Servers      // servers block on current operation level
 		operationServiceDefaults  string                 // JSON string representation of service-defaults on operation level
 		operationService          map[string]interface{} // service entity in use on operation level
@@ -108,17 +125,16 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	docServers = &doc.Servers // this one is always set, but can be empty
 
 	// determine document name, precedence: specified -> x-kong-name -> Info.Title
-	if opts.DocName == "" {
-		if doc.ExtensionProps.Extensions["x-kong-name"] != nil {
-			// TODO: the access below is unsafe if intermediate levels do not exist and might cause a panic (check other instances as well!)
-			err = json.Unmarshal(doc.ExtensionProps.Extensions["x-kong-name"].(json.RawMessage), &opts.DocName)
-			if err != nil {
-				return nil, fmt.Errorf("expected 'x-kong-name' to be a string; %w", err)
-			}
-		} else {
-			opts.DocName = doc.Info.Title
+	docBaseName = opts.DocName
+	if docBaseName == "" {
+		if docBaseName, err = getKongName(doc.ExtensionProps); err != nil {
+			return nil, err
+		}
+		if docBaseName == "" {
+			docBaseName = doc.Info.Title
 		}
 	}
+	docBaseName = kong.Slugify(docBaseName)
 
 	// for defaults we keep strings, so deserializing them provides a copy right away
 	if docServiceDefaults, err = getServiceDefaults(doc.ExtensionProps); err != nil {
@@ -132,7 +148,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// create the top-level docService and (optional) docUpstream
-	docService, docUpstream, err = kong.CreateKongService(opts.DocName, docServers, docServiceDefaults, docUpstreamDefaults, opts.Tags, opts.UuidNamespace)
+	docService, docUpstream, err = kong.CreateKongService(docBaseName, docServers, docServiceDefaults, docUpstreamDefaults, opts.Tags, opts.UuidNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service/upstream from document root: %w", err)
 	}
@@ -141,7 +157,26 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		upstreams = append(upstreams, docUpstream)
 	}
 
-	for path, pathitem := range doc.Paths {
+	// create a sorted array of paths, to be deterministic in our output order
+	sortedPaths := make([]string, len(doc.Paths))
+	i := 0
+	for path := range doc.Paths {
+		sortedPaths[i] = path
+		i++
+	}
+	sort.Strings(sortedPaths)
+
+	for _, path := range sortedPaths {
+		pathitem := doc.Paths[path]
+
+		// determine path name, precedence: specified -> x-kong-name -> actual-path
+		if pathBaseName, err = getKongName(pathitem.ExtensionProps); err != nil {
+			return nil, err
+		}
+		if pathBaseName == "" {
+			pathBaseName = path
+		}
+		pathBaseName = docBaseName + "_" + kong.Slugify(pathBaseName)
 
 		// Set up the defaults on the Path level
 		newService := false
@@ -181,9 +216,8 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		// create a new service if we need to do so
 		if newService {
 			// create the path-level service and (optional) upstream
-			// TODO: the path ends up with / in the hostname of the service
 			pathService, pathUpstream, err = kong.CreateKongService(
-				opts.DocName+"_"+path,
+				pathBaseName,
 				pathServers,
 				pathServiceDefaults,
 				pathUpstreamDefaults,
@@ -200,11 +234,39 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			pathService = docService
 		}
 
-		// traverse all operations
+		// create a sorted array of operations, to be deterministic in our output order
+		operations := pathitem.Operations()
+		sortedMethods := make([]string, len(operations))
+		i := 0
+		for method := range operations {
+			sortedMethods[i] = method
+			i++
+		}
+		sort.Strings(sortedMethods)
 
-		for method, operation := range pathitem.Operations() {
+		// traverse all operations
+		for _, method := range sortedMethods {
+			operation := operations[method]
 
 			var operationRoutes []interface{} // the routes array we need to add to
+
+			// determine operation name, precedence: specified -> operation-ID -> method-name
+			if operationBaseName, err = getKongName(operation.ExtensionProps); err != nil {
+				return nil, err
+			}
+			if operationBaseName != "" {
+				// an x-kong-name was provided, so build as "doc-path-name"
+				operationBaseName = pathBaseName + "_" + kong.Slugify(operationBaseName)
+			} else {
+				operationBaseName = operation.OperationID
+				if operationBaseName == "" {
+					// no operation ID provided, so build as "doc-path-method"
+					operationBaseName = pathBaseName + "_" + kong.Slugify(method)
+				} else {
+					// operation ID is provided, so build as "doc-operationid"
+					operationBaseName = docBaseName + "_" + kong.Slugify(operationBaseName)
+				}
+			}
 
 			// Set up the defaults on the Operation level
 			newService := false
@@ -244,9 +306,8 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			// create a new service if we need to do so
 			if newService {
 				// create the operation-level service and (optional) upstream
-				// TODO: the path ends up with / in the hostname of the service
 				operationService, operationUpstream, err = kong.CreateKongService(
-					opts.DocName+"_"+path+"_"+method, //TODO: use operation ID if available
+					operationBaseName,
 					operationServers,
 					operationServiceDefaults,
 					operationUpstreamDefaults,
@@ -269,24 +330,24 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			var route map[string]interface{}
 			if operationRouteDefaults != "" {
 				json.Unmarshal([]byte(operationRouteDefaults), &route)
+			} else {
+				route = make(map[string]interface{})
 			}
-
-			// TODO: create and add an ID
-			route["id"] = "v5 uuid"
-
-			// TODO: create and add a route-name, using operation id
-			route["name"] = "route-name-tbd"
 
 			// convert path parameters to regex captures
 			re, _ := regexp.Compile("{([^}]+)}")
 			if matches := re.FindAllString(path, -1); matches != nil {
 				for _, varName := range matches {
+					// match single segment; '/', '?', and '#' can mark the end of a segment
+					// see https://github.com/OAI/OpenAPI-Specification/issues/291#issuecomment-316593913
+					regexMatch := "(?<" + varName + ">[^#?/]+)"
 					placeHolder := "{" + varName + "}"
-					regexMatch := "(?<" + varName + ">[^/]+)"
 					path = strings.Replace(path, placeHolder, regexMatch, 1)
 				}
 			}
 			route["paths"] = []string{"~" + path + "$"}
+			route["id"] = uuid.NewV5(opts.UuidNamespace, operationBaseName+".route").String()
+			route["name"] = operationBaseName
 			route["methods"] = []string{method}
 			route["tags"] = opts.Tags
 			route["strip_path"] = false // TODO: there should be some logic around defaults etc iirc

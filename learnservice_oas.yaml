@@ -34,7 +34,7 @@ x-kong-service-defaults:
   connect_timeout: 30000
   write_timeout: 30000
   read_timeout: 30000
-  # FR: defaults can also be added to "path" and "operation" objects
+  # done-FR: defaults can also be added to "path" and "operation" objects
 
 
 x-kong-upstream-defaults:
@@ -47,7 +47,7 @@ x-kong-upstream-defaults:
         http_failures: 3
         tcp_failures: 3
         timeouts: 3
-  # FR: defaults can also be added to "path" and "operation" objects
+  # done-FR: defaults can also be added to "path" and "operation" objects
 
 
 x-kong-name: awesome_learnservice
@@ -109,7 +109,6 @@ paths:
       # so the generated route name here is "awesome_learnservice-upsertTracks"
       # If operationId is not specified, the default name will be the global x-kong-name 
       # with the path name and operation type. 
-      # If x-kong-name is set on the path-le
       # [specname]-[operationId]
       # [specname]-[x-kong-name on path level]-[operation] --> if no "operationId" provided 
       # where [specname] is the x-kong-name on global level (or in its absence "info.title")

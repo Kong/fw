@@ -74,7 +74,8 @@ func setServerDefaults(targets []*url.URL, schemeDefault string) {
 }
 
 // createKongUpstream create a new upstream entity.
-func createKongUpstream(baseName string, // name of the service (will be slugified), and uuid input
+func createKongUpstream(
+	baseName string, // slugified name of the upstream, and uuid input
 	servers *openapi3.Servers, // the OAS3 server block to use for generation
 	upstreamDefaults string, // defaults to use (JSON string) or empty if no defaults
 	tags []string, // tags to attach to the new upstream
@@ -86,9 +87,13 @@ func createKongUpstream(baseName string, // name of the service (will be slugifi
 	if upstreamDefaults != "" {
 		// got defaults, so apply them
 		json.Unmarshal([]byte(upstreamDefaults), &upstream)
+	} else {
+		upstream = make(map[string]interface{})
 	}
-	upstream["id"] = uuid.NewV5(uuidNamespace, baseName+".upstream").String()
-	upstream["name"] = Slugify(baseName) + ".upstream"
+
+	upstreamName := baseName + ".upstream"
+	upstream["id"] = uuid.NewV5(uuidNamespace, upstreamName).String()
+	upstream["name"] = upstreamName
 	upstream["tags"] = tags
 
 	// the server urls, will have minimum 1 entry on success
@@ -116,7 +121,7 @@ func createKongUpstream(baseName string, // name of the service (will be slugifi
 // `baseName` will be used as the name of the service (slugified), and as input
 // for the UUIDv5 generation.
 func CreateKongService(
-	baseName string, // name of the service (will be slugified), and uuid input
+	baseName string, // slugified name of the service, and uuid input
 	servers *openapi3.Servers,
 	serviceDefaults string,
 	upstreamDefaults string,
@@ -131,11 +136,13 @@ func CreateKongService(
 	// setup the defaults
 	if serviceDefaults != "" {
 		json.Unmarshal([]byte(serviceDefaults), &service)
+	} else {
+		service = make(map[string]interface{})
 	}
 
 	// add id, name and tags to the service
 	service["id"] = uuid.NewV5(uuidNamespace, baseName+".service").String()
-	service["name"] = Slugify(baseName)
+	service["name"] = baseName
 	service["tags"] = tags
 	service["plugins"] = make([]interface{}, 0)
 	service["routes"] = make([]interface{}, 0)
@@ -175,7 +182,7 @@ func CreateKongService(
 		service["host"] = targets[0].Hostname()
 	} else {
 		// have to create an upstream with targets
-		upstream, err := createKongUpstream(baseName, servers, upstreamDefaults, tags, uuidNamespace)
+		upstream, err = createKongUpstream(baseName, servers, upstreamDefaults, tags, uuidNamespace)
 		if err != nil {
 			return nil, nil, err
 		}
