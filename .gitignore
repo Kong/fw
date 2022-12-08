@@ -13,3 +13,6 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# generated test files
+convert/oas3_testfiles/*.generated.json
