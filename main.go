@@ -42,12 +42,20 @@ func mustSerialize(content map[string]interface{}, asYaml bool) []byte {
 // if writing fails.
 func mustWriteFile(filename string, content []byte) {
 
-	// write to file
-	f, err := os.Create(filename)
-	if err != nil {
-		log.Fatalf("failed to create output file '%s'", filename)
+	var f *os.File
+	var err error
+
+	if filename != "/dev/stdout" {
+		// write to file
+		f, err = os.Create(filename)
+		if err != nil {
+			log.Fatalf("failed to create output file '%s'", filename)
+		}
+		defer f.Close()
+	} else {
+		// writing to stdout
+		f = os.Stdout
 	}
-	defer f.Close()
 	_, err = f.Write(content)
 	if err != nil {
 		log.Fatalf(fmt.Sprintf("failed to write to output file '%s'; %%w", filename), err)
