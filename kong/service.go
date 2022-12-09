@@ -46,6 +46,11 @@ func parseServerUris(servers *openapi3.Servers) ([]*url.URL, error) {
 // It's set based on; scheme given, port (80/443), default-scheme. In that order.
 func setServerDefaults(targets []*url.URL, schemeDefault string) {
 	for _, target := range targets {
+		// set the hostname if unset
+		if target.Host == "" {
+			target.Host = "localhost"
+		}
+
 		// set the scheme if unset
 		if target.Scheme == "" {
 			// detect scheme from the port
