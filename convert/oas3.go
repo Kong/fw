@@ -121,6 +121,12 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		return nil, fmt.Errorf("error parsing OAS3 file: [%w]", err)
 	}
 
+	//
+	//
+	//  Handle OAS Document level
+	//
+	//
+
 	// set document level elements
 	docServers = &doc.Servers // this one is always set, but can be empty
 
@@ -157,6 +163,12 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		upstreams = append(upstreams, docUpstream)
 	}
 
+	//
+	//
+	//  Handle OAS Path level
+	//
+	//
+
 	// create a sorted array of paths, to be deterministic in our output order
 	sortedPaths := make([]string, len(doc.Paths))
 	i := 0
@@ -189,12 +201,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			newService = true
 		}
 
+		newUpstream := false
 		if pathUpstreamDefaults, err = getUpstreamDefaults(pathitem.ExtensionProps); err != nil {
 			return nil, err
 		}
 		if pathUpstreamDefaults == "" {
 			pathUpstreamDefaults = docUpstreamDefaults
 		} else {
+			newUpstream = true
 			newService = true
 		}
 
@@ -210,6 +224,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		if len(*pathServers) == 0 { // it's always set, so we ignore it if empty
 			pathServers = docServers
 		} else {
+			newUpstream = true
 			newService = true
 		}
 
@@ -228,11 +243,24 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			}
 			services = append(services, pathService)
 			if pathUpstream != nil {
-				upstreams = append(upstreams, pathUpstream)
+				// we have a new upstream, but do we need it?
+				if newUpstream {
+					// we need it, so store and use it
+					upstreams = append(upstreams, pathUpstream)
+				} else {
+					// we don't need it, so update service to point to 'upper' upstream
+					pathService["host"] = docService["host"]
+				}
 			}
 		} else {
 			pathService = docService
 		}
+
+		//
+		//
+		//  Handle OAS Operation level
+		//
+		//
 
 		// create a sorted array of operations, to be deterministic in our output order
 		operations := pathitem.Operations()
@@ -279,12 +307,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				newService = true
 			}
 
+			newUpstream := false
 			if operationUpstreamDefaults, err = getUpstreamDefaults(operation.ExtensionProps); err != nil {
 				return nil, err
 			}
 			if operationUpstreamDefaults == "" {
 				operationUpstreamDefaults = pathUpstreamDefaults
 			} else {
+				newUpstream = true
 				newService = true
 			}
 
@@ -300,6 +330,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if operationServers == nil || len(*operationServers) == 0 {
 				operationServers = pathServers
 			} else {
+				newUpstream = true
 				newService = true
 			}
 
@@ -318,7 +349,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				}
 				services = append(services, operationService)
 				if operationUpstream != nil {
-					upstreams = append(upstreams, operationUpstream)
+					// we have a new upstream, but do we need it?
+					if newUpstream {
+						// we need it, so store and use it
+						upstreams = append(upstreams, operationUpstream)
+					} else {
+						// we don't need it, so update service to point to 'upper' upstream
+						operationService["host"] = pathService["host"]
+					}
 				}
 				operationRoutes = operationService["routes"].([]interface{})
 			} else {
