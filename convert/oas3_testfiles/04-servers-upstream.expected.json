@@ -19,6 +19,7 @@
           "paths": [
             "~/$"
           ],
+          "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",

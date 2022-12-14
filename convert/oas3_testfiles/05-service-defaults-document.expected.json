@@ -20,6 +20,7 @@
           "paths": [
             "~/path1$"
           ],
+          "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -51,6 +52,7 @@
           "paths": [
             "~/path2$"
           ],
+          "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -82,6 +84,7 @@
           "paths": [
             "~/path2$"
           ],
+          "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",

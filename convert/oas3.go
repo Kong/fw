@@ -75,6 +75,59 @@ func getRouteDefaults(props openapi3.ExtensionProps) (string, error) {
 	return getXKongObjectDefaults(props, "x-kong-route-defaults")
 }
 
+// getPluginsList returns a list of plugins retrieved from the extension properties
+// (the 'x-kong-plugin<pluginname>' extensions). Applied on top of the optional
+// pluginsToInclude list. The result will be sorted by plugin name.
+func getPluginsList(props openapi3.ExtensionProps, pluginsToInclude *[]*map[string]interface{}) (*[]*map[string]interface{}, error) {
+	plugins := make(map[string]*map[string]interface{})
+
+	// copy inherited list of plugins
+	if pluginsToInclude != nil {
+		for _, config := range *pluginsToInclude {
+			pluginName := (*config)["name"].(string) // safe because it was previously parsed
+			plugins[pluginName] = config
+		}
+	}
+
+	if props.Extensions != nil {
+		// there are extensions, go check if there are plugins
+		for extensionName, jsonBytes := range props.Extensions {
+
+			if strings.HasPrefix(extensionName, "x-kong-plugin-") {
+				pluginName := strings.TrimPrefix(extensionName, "x-kong-plugin-")
+
+				var pluginConfig map[string]interface{}
+				err := json.Unmarshal(jsonBytes.(json.RawMessage), &pluginConfig)
+				if err != nil {
+					return nil, fmt.Errorf(fmt.Sprintf("failed to parse JSON object for '%s': %%w", extensionName), err)
+				}
+
+				if pluginConfig["name"] != nil && pluginConfig["name"] != pluginName {
+					return nil, fmt.Errorf("extension '%s' specifies a different name than the config; '%s'", extensionName, pluginName)
+				}
+				pluginConfig["name"] = pluginName
+
+				plugins[pluginName] = &pluginConfig
+			}
+		}
+	}
+
+	// the list is complete, sort to be deterministic in the output
+	sortedNames := make([]string, len(plugins))
+	i := 0
+	for pluginName := range plugins {
+		sortedNames[i] = pluginName
+		i++
+	}
+	sort.Strings(sortedNames)
+
+	sorted := make([]*map[string]interface{}, len(plugins))
+	for i, pluginName := range sortedNames {
+		sorted[i] = plugins[pluginName]
+	}
+	return &sorted, nil
+}
+
 // ConvertOas3 converts an OpenAPI spec to a Kong declarative file.
 func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 	opts.setDefaults()
@@ -89,29 +142,32 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		err error
 		doc *openapi3.T // The OAS3 document we're operating on
 
-		docBaseName         string                 // the slugified basename for the document
-		docServers          *openapi3.Servers      // servers block on document level
-		docServiceDefaults  string                 // JSON string representation of service-defaults on document level
-		docService          map[string]interface{} // service entity in use on document level
-		docUpstreamDefaults string                 // JSON string representation of upstream-defaults on document level
-		docUpstream         map[string]interface{} // upstream entity in use on document level
-		docRouteDefaults    string                 // JSON string representation of route-defaults on document level
+		docBaseName         string                     // the slugified basename for the document
+		docServers          *openapi3.Servers          // servers block on document level
+		docServiceDefaults  string                     // JSON string representation of service-defaults on document level
+		docService          map[string]interface{}     // service entity in use on document level
+		docUpstreamDefaults string                     // JSON string representation of upstream-defaults on document level
+		docUpstream         map[string]interface{}     // upstream entity in use on document level
+		docRouteDefaults    string                     // JSON string representation of route-defaults on document level
+		docPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 
-		pathBaseName         string                 // the slugified basename for the path
-		pathServers          *openapi3.Servers      // servers block on current path level
-		pathServiceDefaults  string                 // JSON string representation of service-defaults on path level
-		pathService          map[string]interface{} // service entity in use on path level
-		pathUpstreamDefaults string                 // JSON string representation of upstream-defaults on path level
-		pathUpstream         map[string]interface{} // upstream entity in use on path level
-		pathRouteDefaults    string                 // JSON string representation of route-defaults on path level
+		pathBaseName         string                     // the slugified basename for the path
+		pathServers          *openapi3.Servers          // servers block on current path level
+		pathServiceDefaults  string                     // JSON string representation of service-defaults on path level
+		pathService          map[string]interface{}     // service entity in use on path level
+		pathUpstreamDefaults string                     // JSON string representation of upstream-defaults on path level
+		pathUpstream         map[string]interface{}     // upstream entity in use on path level
+		pathRouteDefaults    string                     // JSON string representation of route-defaults on path level
+		pathPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 
-		operationBaseName         string                 // the slugified basename for the operation
-		operationServers          *openapi3.Servers      // servers block on current operation level
-		operationServiceDefaults  string                 // JSON string representation of service-defaults on operation level
-		operationService          map[string]interface{} // service entity in use on operation level
-		operationUpstreamDefaults string                 // JSON string representation of upstream-defaults on operation level
-		operationUpstream         map[string]interface{} // upstream entity in use on operation level
-		operationRouteDefaults    string                 // JSON string representation of route-defaults on operation level
+		operationBaseName         string                     // the slugified basename for the operation
+		operationServers          *openapi3.Servers          // servers block on current operation level
+		operationServiceDefaults  string                     // JSON string representation of service-defaults on operation level
+		operationService          map[string]interface{}     // service entity in use on operation level
+		operationUpstreamDefaults string                     // JSON string representation of upstream-defaults on operation level
+		operationUpstream         map[string]interface{}     // upstream entity in use on operation level
+		operationRouteDefaults    string                     // JSON string representation of route-defaults on operation level
+		operationPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 	)
 
 	// Load and parse the OAS file
@@ -163,6 +219,13 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		upstreams = append(upstreams, docUpstream)
 	}
 
+	// attach plugins
+	docPluginList, err = getPluginsList(doc.ExtensionProps, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugins list from document root: %w", err)
+	}
+	docService["plugins"] = docPluginList
+
 	//
 	//
 	//  Handle OAS Path level
@@ -191,14 +254,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		pathBaseName = docBaseName + "_" + kong.Slugify(pathBaseName)
 
 		// Set up the defaults on the Path level
-		newService := false
+		newPathService := false
 		if pathServiceDefaults, err = getServiceDefaults(pathitem.ExtensionProps); err != nil {
 			return nil, err
 		}
 		if pathServiceDefaults == "" {
 			pathServiceDefaults = docServiceDefaults
 		} else {
-			newService = true
+			newPathService = true
 		}
 
 		newUpstream := false
@@ -209,7 +272,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			pathUpstreamDefaults = docUpstreamDefaults
 		} else {
 			newUpstream = true
-			newService = true
+			newPathService = true
 		}
 
 		if pathRouteDefaults, err = getRouteDefaults(pathitem.ExtensionProps); err != nil {
@@ -225,11 +288,11 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			pathServers = docServers
 		} else {
 			newUpstream = true
-			newService = true
+			newPathService = true
 		}
 
 		// create a new service if we need to do so
-		if newService {
+		if newPathService {
 			// create the path-level service and (optional) upstream
 			pathService, pathUpstream, err = kong.CreateKongService(
 				pathBaseName,
@@ -241,6 +304,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if err != nil {
 				return nil, fmt.Errorf("failed to create service/updstream from path '%s': %w", path, err)
 			}
+
+			// collect path plugins, including the doc-level plugins since we have a new service entity
+			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, docPluginList)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
+			}
+			pathService["plugins"] = pathPluginList
+
 			services = append(services, pathService)
 			if pathUpstream != nil {
 				// we have a new upstream, but do we need it?
@@ -253,7 +324,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				}
 			}
 		} else {
+			// no new path-level service entity required, so stick to the doc-level one
 			pathService = docService
+
+			// collect path plugins, only the path level, since we're on the doc-level service-entity
+			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
+			}
 		}
 
 		//
@@ -297,14 +375,14 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			}
 
 			// Set up the defaults on the Operation level
-			newService := false
+			newOperationService := false
 			if operationServiceDefaults, err = getServiceDefaults(operation.ExtensionProps); err != nil {
 				return nil, err
 			}
 			if operationServiceDefaults == "" {
 				operationServiceDefaults = pathServiceDefaults
 			} else {
-				newService = true
+				newOperationService = true
 			}
 
 			newUpstream := false
@@ -315,7 +393,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				operationUpstreamDefaults = pathUpstreamDefaults
 			} else {
 				newUpstream = true
-				newService = true
+				newOperationService = true
 			}
 
 			if operationRouteDefaults, err = getRouteDefaults(operation.ExtensionProps); err != nil {
@@ -331,11 +409,11 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				operationServers = pathServers
 			} else {
 				newUpstream = true
-				newService = true
+				newOperationService = true
 			}
 
 			// create a new service if we need to do so
-			if newService {
+			if newOperationService {
 				// create the operation-level service and (optional) upstream
 				operationService, operationUpstream, err = kong.CreateKongService(
 					operationBaseName,
@@ -364,6 +442,26 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				operationRoutes = operationService["routes"].([]interface{})
 			}
 
+			// collect operation plugins
+			if !newOperationService && !newPathService {
+				// we're operating on the doc-level service entity, so we need the plugins
+				// from the path and operation
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, pathPluginList)
+			} else if newOperationService {
+				// we're operating on an operation-level service entity, so we need the plugins
+				// from the document, path, and operation.
+				operationPluginList, _ = getPluginsList(doc.ExtensionProps, nil)
+				operationPluginList, _ = getPluginsList(pathitem.ExtensionProps, operationPluginList)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, operationPluginList)
+			} else if newPathService {
+				// we're operating on a path-level service entity, so we only need the plugins
+				// from the operation.
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, nil)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to create plugins list from operation item: %w", err)
+			}
+
 			// construct the route
 			var route map[string]interface{}
 			if operationRouteDefaults != "" {
@@ -371,6 +469,9 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			} else {
 				route = make(map[string]interface{})
 			}
+
+			// attach the collected plugins configs to the route
+			route["plugins"] = operationPluginList
 
 			// convert path parameters to regex captures
 			re, _ := regexp.Compile("{([^}]+)}")
