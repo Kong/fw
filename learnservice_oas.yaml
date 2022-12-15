@@ -1,5 +1,6 @@
 ---
-# This is the annotated version made/reviewed/tested with Falon Darville
+# This is an annotated OpenAPI spec used to demonstrate/document the behaviour of
+# OpenAPI to Kong conversions.
 
 openapi: 3.0.0
 
@@ -14,7 +15,8 @@ servers:
   # the path variable {host} will be replaced by its default value below.
   # NOTE: if multiple entries, then only the first one will be used to collect the
   # protocol and path. The other entries will only be used to create Target entities.
-  # done-FR: 'servers' can also be added to "path" and "operation" objects (mimic the OAS 3 spec)
+  # "servers" objects on "path" and "operation" objects will cause additional Upstream
+  # and Service entities to be created.
   description: Non production servers
   variables:
     host:
@@ -29,17 +31,20 @@ servers:
 
 x-kong-service-defaults:
   # the defaults for the Kong services generated from 'servers' above
-  # see https://docs.konghq.com/1.2.x/admin-api/#service-object
+  # see https://docs.konghq.com/gateway/latest/admin-api/#service-object
+  # These defaults can also be added to "path" and "operation" objects, in which case
+  # a new Service entity will be generated.
   retries: 10
   connect_timeout: 30000
   write_timeout: 30000
   read_timeout: 30000
-  # done-FR: defaults can also be added to "path" and "operation" objects
 
 
 x-kong-upstream-defaults:
   # the defaults for the Kong upstreams (loadbalancers) generated from 'servers' above
-  # see https://docs.konghq.com/1.2.x/admin-api/#upstream-object
+  # see https://docs.konghq.com/gateway/latest/admin-api/#upstream-object
+  # These defaults can also be added to "path" and "operation" objects, in which case
+  # a new Service and Upstream entity will be generated.
   hash_on: ip
   healthchecks:
     passive:
@@ -47,29 +52,35 @@ x-kong-upstream-defaults:
         http_failures: 3
         tcp_failures: 3
         timeouts: 3
-  # done-FR: defaults can also be added to "path" and "operation" objects
 
 
 x-kong-name: awesome_learnservice
 # the above directive give the entire spec file its name. This will be used for naming
 # the service and upstream objects in Kong. If not given it will use the 'info.title'
-# field above to name them. Names are converted into valid identifiers. For example, 
-# "Learn Services" becomes "Learn_Services".
-# FR: honor this directive on paths and operation objects as well, currently only global
+# field above to name them. Names are converted into valid identifiers. For example,
+# "Learn Services" becomes "learn-services".
+# This directive can also be used on "path" and "operation" objects to name them.
+
 
 x-kong-plugin-correlation-id:
   config:
     generator: uuid#counter
-# this plugin is configured on a global level. As such it will be configured
+# Directive to add a plugin. The plugin name is derived from the extension name, so in
+# this case "correlation-id".
+# This plugin is configured on a global level. As such it will be configured
 # on the Kong Service entity, and hence apply on all paths and operations in this spec.
 # It can be specified again on paths and operations to override the config for that
 # specific subset of the spec, in that case it will be added to the generated Kong Route entity.
-  
+# If new Service entities are generated from "path" or "operation" objects, the plugins
+# will be copied over accordingly (for example by having "servers" objects, or Upstream or
+# Service defaults specified on those levels).
+
 x-kong-plugin-request-validator:
   config:
     #body_schema: {}
     #parameter_schema: {}
     verbose_response: true
+# TODO: implement this
 # here we're using the request validator plugin, without specifying the
 # "config.body_schema" and "config.parameter_schema" properties.
 # This will tell the parser to automatically generate
@@ -88,7 +99,7 @@ tags:
 
 x-kong-route-defaults:
   # the defaults for the Kong routes generated from 'paths' below
-  # see https://docs.konghq.com/1.2.x/admin-api/#route-object
+  # see https://docs.konghq.com/gateway/latest/admin-api/#route-object
   preserve_host: true
   # NOTE: these defaults can also be added to "path" and "operation" objects as well
   # to only apply to that subset of the spec.
@@ -97,28 +108,28 @@ x-kong-route-defaults:
 paths:
   "/tracks":
     x-kong-service-defaults:
-      # override the service-default for this specific path
+      # override the service-default for this specific path. This will generate
+      # a new Service entity.
       retries: 999
     post:
       tags:
       - learn
       summary: Upsert tracks
       operationId: upsertTracks
-      # Kong routes are generated from the top-level Service name (x-kong-name or info.title 
-      # if x-kong-name is not set), and then the operationId gets appended (with '-' as separator)
-      # so the generated route name here is "awesome_learnservice-upsertTracks"
-      # If operationId is not specified, the default name will be the global x-kong-name 
-      # with the path name and operation type. 
-      # [specname]-[operationId]
-      # [specname]-[x-kong-name on path level]-[operation] --> if no "operationId" provided 
+      # Kong routes are generated from the top-level Service name (x-kong-name or info.title
+      # if x-kong-name is not set), and then the operationId gets appended (with '_' as separator)
+      # so the generated route name here is "awesome-learnservice_upserttracks"
+      # If operationId is not specified, the default name will be the global x-kong-name
+      # with the path name and operation type.
+      # [specname]_[operationId]
+      # [specname]_[x-kong-name on path level]_[operation] --> if no "operationId" provided
       # where [specname] is the x-kong-name on global level (or in its absence "info.title")
       x-kong-plugin-request-termination:
+        # the "x-kong-plugin-<plugin name>" directive can be used to add plugins
         name: request-termination
         config:
           status_code: 403
           message: So long and thanks for all the fish!
-        # the "x-kong-plugin-<plugin name>" directive can be used to add plugins
-        # to Kong routes (OAS operation object)
       responses:
         '200':
           description: Successful operation
@@ -142,13 +153,14 @@ paths:
         # TODO: validate security generated all together!!! report about it being broken
         # See #/components/securitySchemes for the definition
         # NOTE: only a single scheme per security object is supported!
-      x-kong-plugin-file-log: 
+      x-kong-plugin-file-log:
         "$ref": "#/components/x-kong/plugins/log_to_file"
-      # Adding another plugin, but in this case we use a reference so any updates
-      # to the configuration can be done in a single place.
+        # TODO: allow for references to work
+        # Adding another plugin, but in this case we use a reference so any updates
+        # to the configuration can be done in a single place.
       parameters:
-      # for these parameters to get validated, "x-kong-plugin-request-validator" must be
-      # specified, see that directive above.
+        # for these parameters to get validated, "x-kong-plugin-request-validator" must be
+        # specified, see that directive above.
       - name: userId
         in: query
         description: id of the user
@@ -306,7 +318,7 @@ components:
         config:
           key_names: [ "mykey", "yourkey" ]
           # the "key_names" will be merged with the name specified in OAS above
-          # so effectively keynames that will be accepted are now: "apikey", 
+          # so effectively keynames that will be accepted are now: "apikey",
           # "mykey", and "yourkey".
           hide_credentials: true
           run_on_preflight: false
@@ -325,7 +337,7 @@ components:
           # requirement with "scope3", then the effective scopes applied will
           # be "scope1", "scope2", and "scope3". For example: "read", "write", or
           # "delete".
-  
+
   schemas:
     Track:
       type: object
