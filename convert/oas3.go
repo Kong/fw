@@ -49,29 +49,30 @@ func getKongName(props openapi3.ExtensionProps) (string, error) {
 	return "", nil
 }
 
-func getXKongObjectDefaults(props openapi3.ExtensionProps, name string) (string, error) {
+func getXKongObjectDefaults(props openapi3.ExtensionProps, name string) ([]byte, error) {
 	if props.Extensions != nil && props.Extensions[name] != nil {
 		jsonblob, _ := json.Marshal(props.Extensions[name])
 		if !isJsonObject(jsonblob) {
-			return "", fmt.Errorf("expected '%s' to be a JSON object", name)
+			return nil, fmt.Errorf("expected '%s' to be a JSON object", name)
 		}
-		return string(jsonblob), nil
+
+		return jsonblob, nil
 	}
-	return "", nil
+	return nil, nil
 }
 
 // getServiceDefaults returns a JSON string containing the defaults
-func getServiceDefaults(props openapi3.ExtensionProps) (string, error) {
+func getServiceDefaults(props openapi3.ExtensionProps) ([]byte, error) {
 	return getXKongObjectDefaults(props, "x-kong-service-defaults")
 }
 
 // getUpstreamDefaults returns a JSON string containing the defaults
-func getUpstreamDefaults(props openapi3.ExtensionProps) (string, error) {
+func getUpstreamDefaults(props openapi3.ExtensionProps) ([]byte, error) {
 	return getXKongObjectDefaults(props, "x-kong-upstream-defaults")
 }
 
 // getRouteDefaults returns a JSON string containing the defaults
-func getRouteDefaults(props openapi3.ExtensionProps) (string, error) {
+func getRouteDefaults(props openapi3.ExtensionProps) ([]byte, error) {
 	return getXKongObjectDefaults(props, "x-kong-route-defaults")
 }
 
@@ -112,13 +113,19 @@ func getPluginsList(
 
 	if props.Extensions != nil {
 		// there are extensions, go check if there are plugins
-		for extensionName, jsonBytes := range props.Extensions {
+		for extensionName := range props.Extensions {
 
 			if strings.HasPrefix(extensionName, "x-kong-plugin-") {
 				pluginName := strings.TrimPrefix(extensionName, "x-kong-plugin-")
 
+				jsonstr, err := getXKongObjectDefaults(props, extensionName)
+				if err != nil {
+					return nil, err
+				}
+
 				var pluginConfig map[string]interface{}
-				err := json.Unmarshal(jsonBytes.(json.RawMessage), &pluginConfig)
+				err = json.Unmarshal([]byte(jsonstr), &pluginConfig)
+				// err := json.Unmarshal(jsonBytes.(json.RawMessage), &pluginConfig)
 				if err != nil {
 					return nil, fmt.Errorf(fmt.Sprintf("failed to parse JSON object for '%s': %%w", extensionName), err)
 				}
@@ -169,29 +176,29 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 		docBaseName         string                     // the slugified basename for the document
 		docServers          *openapi3.Servers          // servers block on document level
-		docServiceDefaults  string                     // JSON string representation of service-defaults on document level
+		docServiceDefaults  []byte                     // JSON string representation of service-defaults on document level
 		docService          map[string]interface{}     // service entity in use on document level
-		docUpstreamDefaults string                     // JSON string representation of upstream-defaults on document level
+		docUpstreamDefaults []byte                     // JSON string representation of upstream-defaults on document level
 		docUpstream         map[string]interface{}     // upstream entity in use on document level
-		docRouteDefaults    string                     // JSON string representation of route-defaults on document level
+		docRouteDefaults    []byte                     // JSON string representation of route-defaults on document level
 		docPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 
 		pathBaseName         string                     // the slugified basename for the path
 		pathServers          *openapi3.Servers          // servers block on current path level
-		pathServiceDefaults  string                     // JSON string representation of service-defaults on path level
+		pathServiceDefaults  []byte                     // JSON string representation of service-defaults on path level
 		pathService          map[string]interface{}     // service entity in use on path level
-		pathUpstreamDefaults string                     // JSON string representation of upstream-defaults on path level
+		pathUpstreamDefaults []byte                     // JSON string representation of upstream-defaults on path level
 		pathUpstream         map[string]interface{}     // upstream entity in use on path level
-		pathRouteDefaults    string                     // JSON string representation of route-defaults on path level
+		pathRouteDefaults    []byte                     // JSON string representation of route-defaults on path level
 		pathPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 
 		operationBaseName         string                     // the slugified basename for the operation
 		operationServers          *openapi3.Servers          // servers block on current operation level
-		operationServiceDefaults  string                     // JSON string representation of service-defaults on operation level
+		operationServiceDefaults  []byte                     // JSON string representation of service-defaults on operation level
 		operationService          map[string]interface{}     // service entity in use on operation level
-		operationUpstreamDefaults string                     // JSON string representation of upstream-defaults on operation level
+		operationUpstreamDefaults []byte                     // JSON string representation of upstream-defaults on operation level
 		operationUpstream         map[string]interface{}     // upstream entity in use on operation level
-		operationRouteDefaults    string                     // JSON string representation of route-defaults on operation level
+		operationRouteDefaults    []byte                     // JSON string representation of route-defaults on operation level
 		operationPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 	)
 
@@ -283,7 +290,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		if pathServiceDefaults, err = getServiceDefaults(pathitem.ExtensionProps); err != nil {
 			return nil, err
 		}
-		if pathServiceDefaults == "" {
+		if pathServiceDefaults == nil {
 			pathServiceDefaults = docServiceDefaults
 		} else {
 			newPathService = true
@@ -293,7 +300,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		if pathUpstreamDefaults, err = getUpstreamDefaults(pathitem.ExtensionProps); err != nil {
 			return nil, err
 		}
-		if pathUpstreamDefaults == "" {
+		if pathUpstreamDefaults == nil {
 			pathUpstreamDefaults = docUpstreamDefaults
 		} else {
 			newUpstream = true
@@ -303,7 +310,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		if pathRouteDefaults, err = getRouteDefaults(pathitem.ExtensionProps); err != nil {
 			return nil, err
 		}
-		if pathRouteDefaults == "" {
+		if pathRouteDefaults == nil {
 			pathRouteDefaults = docRouteDefaults
 		}
 
@@ -404,7 +411,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if operationServiceDefaults, err = getServiceDefaults(operation.ExtensionProps); err != nil {
 				return nil, err
 			}
-			if operationServiceDefaults == "" {
+			if operationServiceDefaults == nil {
 				operationServiceDefaults = pathServiceDefaults
 			} else {
 				newOperationService = true
@@ -414,7 +421,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if operationUpstreamDefaults, err = getUpstreamDefaults(operation.ExtensionProps); err != nil {
 				return nil, err
 			}
-			if operationUpstreamDefaults == "" {
+			if operationUpstreamDefaults == nil {
 				operationUpstreamDefaults = pathUpstreamDefaults
 			} else {
 				newUpstream = true
@@ -424,7 +431,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if operationRouteDefaults, err = getRouteDefaults(operation.ExtensionProps); err != nil {
 				return nil, err
 			}
-			if operationRouteDefaults == "" {
+			if operationRouteDefaults == nil {
 				operationRouteDefaults = pathRouteDefaults
 			}
 
@@ -489,8 +496,8 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 			// construct the route
 			var route map[string]interface{}
-			if operationRouteDefaults != "" {
-				json.Unmarshal([]byte(operationRouteDefaults), &route)
+			if operationRouteDefaults != nil {
+				json.Unmarshal(operationRouteDefaults, &route)
 			} else {
 				route = make(map[string]interface{})
 			}

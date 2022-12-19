@@ -82,14 +82,14 @@ func setServerDefaults(targets []*url.URL, schemeDefault string) {
 func createKongUpstream(
 	baseName string, // slugified name of the upstream, and uuid input
 	servers *openapi3.Servers, // the OAS3 server block to use for generation
-	upstreamDefaults string, // defaults to use (JSON string) or empty if no defaults
+	upstreamDefaults []byte, // defaults to use (JSON string) or empty if no defaults
 	tags []string, // tags to attach to the new upstream
 	uuidNamespace uuid.UUID) (map[string]interface{}, error) {
 
 	var upstream map[string]interface{}
 
 	// have to create an upstream with targets
-	if upstreamDefaults != "" {
+	if upstreamDefaults != nil {
 		// got defaults, so apply them
 		json.Unmarshal([]byte(upstreamDefaults), &upstream)
 	} else {
@@ -128,8 +128,8 @@ func createKongUpstream(
 func CreateKongService(
 	baseName string, // slugified name of the service, and uuid input
 	servers *openapi3.Servers,
-	serviceDefaults string,
-	upstreamDefaults string,
+	serviceDefaults []byte,
+	upstreamDefaults []byte,
 	tags []string,
 	uuidNamespace uuid.UUID) (map[string]interface{}, map[string]interface{}, error) {
 
@@ -139,8 +139,8 @@ func CreateKongService(
 	)
 
 	// setup the defaults
-	if serviceDefaults != "" {
-		json.Unmarshal([]byte(serviceDefaults), &service)
+	if serviceDefaults != nil {
+		json.Unmarshal(serviceDefaults, &service)
 	} else {
 		service = make(map[string]interface{})
 	}
@@ -182,7 +182,7 @@ func CreateKongService(
 	// we need an upstream if;
 	// a) upstream defaults are provided, or
 	// b) there is more than one entry in the servers block
-	if len(targets) == 1 && upstreamDefaults == "" {
+	if len(targets) == 1 && upstreamDefaults == nil {
 		// have to create a simple service, no upstream, so just set the hostname
 		service["host"] = targets[0].Hostname()
 	} else {
