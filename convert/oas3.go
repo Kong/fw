@@ -32,10 +32,6 @@ func (opts *O2kOptions) setDefaults() {
 	}
 }
 
-func isJsonObject(json []byte) bool {
-	return true // TODO: implement
-}
-
 // getKongName returns the `x-kong-name` property, validated to be a string
 func getKongName(props openapi3.ExtensionProps) (string, error) {
 	if props.Extensions != nil && props.Extensions["x-kong-name"] != nil {
@@ -49,31 +45,116 @@ func getKongName(props openapi3.ExtensionProps) (string, error) {
 	return "", nil
 }
 
-func getXKongObjectDefaults(props openapi3.ExtensionProps, name string) ([]byte, error) {
-	if props.Extensions != nil && props.Extensions[name] != nil {
-		jsonblob, _ := json.Marshal(props.Extensions[name])
-		if !isJsonObject(jsonblob) {
-			return nil, fmt.Errorf("expected '%s' to be a JSON object", name)
+func dereferenceJsonObject(value map[string]interface{}, components *map[string]interface{}) (map[string]interface{}, error) {
+	var pointer string
+
+	switch value["$ref"].(type) {
+	case nil: // it is not a reference, so return the object
+		return value, nil
+
+	case string: // it is a json pointer
+		pointer = value["$ref"].(string)
+		if !strings.HasPrefix(pointer, "#/components/x-kong/") {
+			return nil, fmt.Errorf("all 'x-kong-...' references must be at '#/components/x-kong/...'")
 		}
 
-		return jsonblob, nil
+	default: // bad pointer
+		return nil, fmt.Errorf("expected '$ref' pointer to be a string")
+	}
+
+	// walk the tree to find the reference
+	segments := strings.Split(pointer, "/")
+	path := "#/components/x-kong"
+	result := components
+
+	for i := 3; i < len(segments); i++ {
+		segment := segments[i]
+		path = path + "/" + segment
+
+		switch (*result)[segment].(type) {
+		case nil:
+			return nil, fmt.Errorf("reference '%s' not found", pointer)
+		case map[string]interface{}:
+			target := (*result)[segment].(map[string]interface{})
+			result = &target
+		default:
+			return nil, fmt.Errorf("expected '%s' to be a JSON object", path)
+		}
+	}
+
+	return *result, nil
+}
+
+func toJsonObject(object interface{}) (map[string]interface{}, error) {
+	switch result := object.(type) {
+	case map[string]interface{}:
+		return result, nil
+	default:
+		return nil, fmt.Errorf("not a Json object")
+	}
+}
+
+// getXKongObject returns specified 'key' from the extension properties if available.
+// returns nil if it wasn't found, an error if it wasn't an object or couldn't be
+// dereferenced. The returned object will be json encoded again.
+func getXKongObject(props openapi3.ExtensionProps, key string, components *map[string]interface{}) ([]byte, error) {
+	if props.Extensions != nil && props.Extensions[key] != nil {
+		var jsonBlob interface{}
+		json.Unmarshal(props.Extensions[key].(json.RawMessage), &jsonBlob)
+		jsonObject, err := toJsonObject(jsonBlob)
+		if err != nil {
+			return nil, fmt.Errorf("expected '%s' to be a JSON object", key)
+		}
+
+		object, err := dereferenceJsonObject(jsonObject, components)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(object)
 	}
 	return nil, nil
 }
 
+// getXKongComponents will return a map of the '/components/x-kong/' object. If
+// the extension is not there it will return an empty map. If the entry is not a
+// Json object, it will return an error.
+func getXKongComponents(doc *openapi3.T) (*map[string]interface{}, error) {
+	var components map[string]interface{}
+	switch prop := doc.Components.ExtensionProps.Extensions["x-kong"].(type) {
+	case nil:
+		// not available, create empty map to do safe lookups down the line
+		components = make(map[string]interface{})
+
+	default:
+		// we got some json blob
+		var xKong interface{}
+		json.Unmarshal(prop.(json.RawMessage), &xKong)
+
+		switch val := xKong.(type) {
+		case map[string]interface{}:
+			components = val
+
+		default:
+			return nil, fmt.Errorf("expected '/components/x-kong' to be a JSON object")
+		}
+	}
+
+	return &components, nil
+}
+
 // getServiceDefaults returns a JSON string containing the defaults
-func getServiceDefaults(props openapi3.ExtensionProps) ([]byte, error) {
-	return getXKongObjectDefaults(props, "x-kong-service-defaults")
+func getServiceDefaults(props openapi3.ExtensionProps, components *map[string]interface{}) ([]byte, error) {
+	return getXKongObject(props, "x-kong-service-defaults", components)
 }
 
 // getUpstreamDefaults returns a JSON string containing the defaults
-func getUpstreamDefaults(props openapi3.ExtensionProps) ([]byte, error) {
-	return getXKongObjectDefaults(props, "x-kong-upstream-defaults")
+func getUpstreamDefaults(props openapi3.ExtensionProps, components *map[string]interface{}) ([]byte, error) {
+	return getXKongObject(props, "x-kong-upstream-defaults", components)
 }
 
 // getRouteDefaults returns a JSON string containing the defaults
-func getRouteDefaults(props openapi3.ExtensionProps) ([]byte, error) {
-	return getXKongObjectDefaults(props, "x-kong-route-defaults")
+func getRouteDefaults(props openapi3.ExtensionProps, components *map[string]interface{}) ([]byte, error) {
+	return getXKongObject(props, "x-kong-route-defaults", components)
 }
 
 // create plugin id
@@ -90,7 +171,8 @@ func getPluginsList(
 	props openapi3.ExtensionProps,
 	pluginsToInclude *[]*map[string]interface{},
 	uuidNamespace uuid.UUID,
-	baseName string) (*[]*map[string]interface{}, error) {
+	baseName string,
+	components *map[string]interface{}) (*[]*map[string]interface{}, error) {
 
 	plugins := make(map[string]*map[string]interface{})
 
@@ -118,7 +200,7 @@ func getPluginsList(
 			if strings.HasPrefix(extensionName, "x-kong-plugin-") {
 				pluginName := strings.TrimPrefix(extensionName, "x-kong-plugin-")
 
-				jsonstr, err := getXKongObjectDefaults(props, extensionName)
+				jsonstr, err := getXKongObject(props, extensionName, components)
 				if err != nil {
 					return nil, err
 				}
@@ -171,8 +253,9 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	upstreams := make([]interface{}, 0)
 
 	var (
-		err error
-		doc *openapi3.T // The OAS3 document we're operating on
+		err            error
+		doc            *openapi3.T             // the OAS3 document we're operating on
+		kongComponents *map[string]interface{} // contents of OAS key `/components/x-kong/`
 
 		docBaseName         string                     // the slugified basename for the document
 		docServers          *openapi3.Servers          // servers block on document level
@@ -230,14 +313,18 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 	docBaseName = kong.Slugify(docBaseName)
 
+	if kongComponents, err = getXKongComponents(doc); err != nil {
+		return nil, err
+	}
+
 	// for defaults we keep strings, so deserializing them provides a copy right away
-	if docServiceDefaults, err = getServiceDefaults(doc.ExtensionProps); err != nil {
+	if docServiceDefaults, err = getServiceDefaults(doc.ExtensionProps, kongComponents); err != nil {
 		return nil, err
 	}
-	if docUpstreamDefaults, err = getUpstreamDefaults(doc.ExtensionProps); err != nil {
+	if docUpstreamDefaults, err = getUpstreamDefaults(doc.ExtensionProps, kongComponents); err != nil {
 		return nil, err
 	}
-	if docRouteDefaults, err = getRouteDefaults(doc.ExtensionProps); err != nil {
+	if docRouteDefaults, err = getRouteDefaults(doc.ExtensionProps, kongComponents); err != nil {
 		return nil, err
 	}
 
@@ -252,7 +339,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// attach plugins
-	docPluginList, err = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, docBaseName)
+	docPluginList, err = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, docBaseName, kongComponents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugins list from document root: %w", err)
 	}
@@ -287,7 +374,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 		// Set up the defaults on the Path level
 		newPathService := false
-		if pathServiceDefaults, err = getServiceDefaults(pathitem.ExtensionProps); err != nil {
+		if pathServiceDefaults, err = getServiceDefaults(pathitem.ExtensionProps, kongComponents); err != nil {
 			return nil, err
 		}
 		if pathServiceDefaults == nil {
@@ -297,7 +384,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		}
 
 		newUpstream := false
-		if pathUpstreamDefaults, err = getUpstreamDefaults(pathitem.ExtensionProps); err != nil {
+		if pathUpstreamDefaults, err = getUpstreamDefaults(pathitem.ExtensionProps, kongComponents); err != nil {
 			return nil, err
 		}
 		if pathUpstreamDefaults == nil {
@@ -307,7 +394,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			newPathService = true
 		}
 
-		if pathRouteDefaults, err = getRouteDefaults(pathitem.ExtensionProps); err != nil {
+		if pathRouteDefaults, err = getRouteDefaults(pathitem.ExtensionProps, kongComponents); err != nil {
 			return nil, err
 		}
 		if pathRouteDefaults == nil {
@@ -338,7 +425,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			}
 
 			// collect path plugins, including the doc-level plugins since we have a new service entity
-			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, docPluginList, opts.UuidNamespace, pathBaseName)
+			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, docPluginList, opts.UuidNamespace, pathBaseName, kongComponents)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
 			}
@@ -360,7 +447,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			pathService = docService
 
 			// collect path plugins, only the path level, since we're on the doc-level service-entity
-			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, nil, opts.UuidNamespace, pathBaseName)
+			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, nil, opts.UuidNamespace, pathBaseName, kongComponents)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
 			}
@@ -408,7 +495,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 			// Set up the defaults on the Operation level
 			newOperationService := false
-			if operationServiceDefaults, err = getServiceDefaults(operation.ExtensionProps); err != nil {
+			if operationServiceDefaults, err = getServiceDefaults(operation.ExtensionProps, kongComponents); err != nil {
 				return nil, err
 			}
 			if operationServiceDefaults == nil {
@@ -418,7 +505,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			}
 
 			newUpstream := false
-			if operationUpstreamDefaults, err = getUpstreamDefaults(operation.ExtensionProps); err != nil {
+			if operationUpstreamDefaults, err = getUpstreamDefaults(operation.ExtensionProps, kongComponents); err != nil {
 				return nil, err
 			}
 			if operationUpstreamDefaults == nil {
@@ -428,7 +515,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				newOperationService = true
 			}
 
-			if operationRouteDefaults, err = getRouteDefaults(operation.ExtensionProps); err != nil {
+			if operationRouteDefaults, err = getRouteDefaults(operation.ExtensionProps, kongComponents); err != nil {
 				return nil, err
 			}
 			if operationRouteDefaults == nil {
@@ -478,17 +565,17 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if !newOperationService && !newPathService {
 				// we're operating on the doc-level service entity, so we need the plugins
 				// from the path and operation
-				operationPluginList, err = getPluginsList(operation.ExtensionProps, pathPluginList, opts.UuidNamespace, operationBaseName)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, pathPluginList, opts.UuidNamespace, operationBaseName, kongComponents)
 			} else if newOperationService {
 				// we're operating on an operation-level service entity, so we need the plugins
 				// from the document, path, and operation.
-				operationPluginList, _ = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, operationBaseName)
-				operationPluginList, _ = getPluginsList(pathitem.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName)
-				operationPluginList, err = getPluginsList(operation.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName)
+				operationPluginList, _ = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, operationBaseName, kongComponents)
+				operationPluginList, _ = getPluginsList(pathitem.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName, kongComponents)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName, kongComponents)
 			} else if newPathService {
 				// we're operating on a path-level service entity, so we only need the plugins
 				// from the operation.
-				operationPluginList, err = getPluginsList(operation.ExtensionProps, nil, opts.UuidNamespace, operationBaseName)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, nil, opts.UuidNamespace, operationBaseName, kongComponents)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from operation item: %w", err)
