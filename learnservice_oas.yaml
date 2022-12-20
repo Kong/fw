@@ -75,11 +75,11 @@ x-kong-plugin-correlation-id:
 # will be copied over accordingly (for example by having "servers" objects, or Upstream or
 # Service defaults specified on those levels).
 
-x-kong-plugin-request-validator:
-  config:
-    #body_schema: {}
-    #parameter_schema: {}
-    verbose_response: true
+# x-kong-plugin-request-validator:
+#   config:
+#     #body_schema: {}
+#     #parameter_schema: {}
+#     verbose_response: true
 # TODO: implement this
 # here we're using the request validator plugin, without specifying the
 # "config.body_schema" and "config.parameter_schema" properties.
@@ -155,9 +155,9 @@ paths:
         # NOTE: only a single scheme per security object is supported!
       x-kong-plugin-file-log:
         "$ref": "#/components/x-kong/plugins/log_to_file"
-        # TODO: allow for references to work
         # Adding another plugin, but in this case we use a reference so any updates
         # to the configuration can be done in a single place.
+        # see 'components' below for limitations.
       parameters:
         # for these parameters to get validated, "x-kong-plugin-request-validator" must be
         # specified, see that directive above.
@@ -287,13 +287,18 @@ paths:
       requestBody:
         "$ref": "#/components/requestBodies/Video"
 
-#TODO: cleanup unused stuff in components below
+
 components:
   x-kong:
-    # reusable Kong plugin configurations
+    # reusable Kong configuration components.
+    # All Kong references must be under this key. Referenceable elements are;
+    # - x-kong-service-defaults
+    # - x-kong-upstream-defaults
+    # - x-kong-route-defaults
+    # - x-kong-plugin-[...] plugin configurations
     plugins:
       log_to_file:
-        # file-log plugin configuration
+        # reusable file-log plugin configuration
         config:
           path: "/dev/stderr"
 
@@ -437,144 +442,11 @@ components:
       type: string
       minLength: 1
       maxLength: 5
-    TrackActivities:
-      description: Contains the Track activities of a user
-      type: object
-      properties:
-        userId:
-          "$ref": "#/components/schemas/parameterValue"
-        tracks:
-          type: array
-          items:
-            "$ref": "#/components/schemas/TrackActivity"
-    TrackActivity:
-      type: object
-      properties:
-        trackId:
-          "$ref": "#/components/schemas/TrackId"
-        quizId:
-          "$ref": "#/components/schemas/parameterValue"
-        quizAttempts:
-          type: integer
-        videosWatched:
-          type: array
-          items:
-            "$ref": "#/components/schemas/VideoActivity"
-    VideoActivity:
-      type: object
-      properties:
-        videoId:
-          "$ref": "#/components/schemas/parameterValue"
-        timestamp:
-          "$ref": "#/components/schemas/dateOrTimestamp"
-        sessionId:
-          "$ref": "#/components/schemas/parameterValue"
-    QuizResult:
-      description: Quiz Result
-      type: object
-      properties:
-        userId:
-          "$ref": "#/components/schemas/parameterValue"
-        session:
-          "$ref": "#/components/schemas/parameterValue"
-        track:
-          "$ref": "#/components/schemas/TrackId"
-        quizId:
-          "$ref": "#/components/schemas/parameterValue"
-        passed:
-          description: determines whether the user passed the quiz
-          type: boolean
-        score:
-          type: number
-          format: double
-          minimum: 0.1
-          maximum: 100000000
-        scoreSheet:
-          description: Scoresheet for Quiz
-          type: array
-          minItems: 1
-          maxItems: 1000
-          items:
-            type: boolean
-        timestamp:
-          description: Timestamp of quiz result
-          type: string
-          pattern: "^[\\w\\- :.*/\\\\]{1,128}$"
-    CertificationStatusItem:
-      type: object
-      properties:
-        track:
-          type: string
-        timestamp:
-          "$ref": "#/components/schemas/dateOrTimestamp"
-    LearningCenterTrackSummary:
-      type: object
-      properties:
-        trackId:
-          "$ref": "#/components/schemas/TrackId"
-        completed:
-          type: integer
-        inProgress:
-          type: integer
-        notStarted:
-          type: integer
-    TrackIdLearningCenterUserTrackDetailsMap:
-      type: object
-      additionalProperties:
-        "$ref": "#/components/schemas/LearningCenterUserTrackDetails"
-    LearningCenterUserTrackDetails:
-      type: object
-      required:
-      - videosWatched
-      - certificateEarned
-      - quizAttempts
-      - videoCompletionTimes
-      properties:
-        videosWatched:
-          type: array
-          items:
-            type: boolean
-        quizScore:
-          type: number
-          format: double
-        certificateEarned:
-          type: boolean
-        quizAttempts:
-          type: integer
-        videoCompletionTimes:
-          type: array
-          items:
-            type: string
-            format: date-time
-        quizCompletionTime:
-          type: string
-          format: date-time
-    LearningCenterUserSummary:
-      type: object
-      required:
-      - completed
-      - inProgress
-      - notStarted
-      properties:
-        completed:
-          type: integer
-        inProgress:
-          type: integer
-        notStarted:
-          type: integer
     parameterValue:
       anyOf:
       - "$ref": "#/components/schemas/symbol"
       - "$ref": "#/components/schemas/sanitized_number"
       - "$ref": "#/components/schemas/symbolArray"
-    dateOrTimestamp:
-      oneOf:
-      - type: string
-        format: dateTime
-      - type: string
-        format: date
-      - type: string
-        pattern: "^[0-9]{4}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$"
     symbol:
       type: string
       maxLength: 4096
@@ -588,6 +460,7 @@ components:
       type: integer
       minimum: -1000000000
       maximum: 1000000000
+
   requestBodies:
     tracks:
       content:
