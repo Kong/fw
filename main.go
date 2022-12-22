@@ -82,7 +82,7 @@ func main() {
 
 	// do the work: read/convert/write
 	options := convert.O2kOptions{
-		// Tags:          tags,
+		// Tags:          &tags,
 		DocName:       docName,
 		UuidNamespace: uuidNamespace,
 	}

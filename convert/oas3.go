@@ -19,7 +19,7 @@ const (
 
 // O2KOptions defines the options for an O2K conversion operation
 type O2kOptions struct {
-	Tags          []string  // Array of tags to mark all generated entities with
+	Tags          *[]string // Array of tags to mark all generated entities with
 	DocName       string    // Base document name, will be taken from x-kong-name, or info.title (used for UUID generation!)
 	UuidNamespace uuid.UUID // Namespace for UUID generation, defaults to DNS namespace for UUID v5
 }
@@ -30,6 +30,46 @@ func (opts *O2kOptions) setDefaults() {
 	if uuid.Equal(emptyUuid, opts.UuidNamespace) {
 		opts.UuidNamespace = uuid.NamespaceDNS
 	}
+}
+
+// getKongName returns the provided tags or if nil, then the `x-kong-tags` property,
+// validated to be a string array. If there is no error, then there will always be
+// an array returned for safe access later in the process.
+func getKongTags(doc *openapi3.T, tagsProvided *[]string) ([]string, error) {
+	if tagsProvided != nil {
+		// the provided tags take precedence, return them
+		return *tagsProvided, nil
+	}
+
+	if doc.ExtensionProps.Extensions == nil || doc.ExtensionProps.Extensions["x-kong-tags"] == nil {
+		// there is no extension, so return an empty array
+		return make([]string, 0), nil
+	}
+
+	var tagsValue interface{}
+	err := json.Unmarshal(doc.ExtensionProps.Extensions["x-kong-tags"].(json.RawMessage), &tagsValue)
+	if err != nil {
+		return nil, fmt.Errorf("expected 'x-kong-tags' to be an array of strings: %w", err)
+	}
+	var tagsArray []interface{}
+	switch tags := tagsValue.(type) {
+	case []interface{}:
+		// got a proper array
+		tagsArray = tags
+	default:
+		return nil, fmt.Errorf("expected 'x-kong-tags' to be an array of strings")
+	}
+
+	resultArray := make([]string, len(tagsArray))
+	for i := 0; i < len(tagsArray); i++ {
+		switch tag := tagsArray[i].(type) {
+		case string:
+			resultArray[i] = tag
+		default:
+			return nil, fmt.Errorf("expected 'x-kong-tags' to be an array of strings")
+		}
+	}
+	return resultArray, nil
 }
 
 // getKongName returns the `x-kong-name` property, validated to be a string
@@ -256,6 +296,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		err            error
 		doc            *openapi3.T             // the OAS3 document we're operating on
 		kongComponents *map[string]interface{} // contents of OAS key `/components/x-kong/`
+		kongTags       []string                // tags to attach to Kong entities
 
 		docBaseName         string                     // the slugified basename for the document
 		docServers          *openapi3.Servers          // servers block on document level
@@ -298,6 +339,11 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	//
 	//
 
+	// collect tags to use
+	if kongTags, err = getKongTags(doc, opts.Tags); err != nil {
+		return nil, err
+	}
+
 	// set document level elements
 	docServers = &doc.Servers // this one is always set, but can be empty
 
@@ -329,7 +375,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// create the top-level docService and (optional) docUpstream
-	docService, docUpstream, err = kong.CreateKongService(docBaseName, docServers, docServiceDefaults, docUpstreamDefaults, opts.Tags, opts.UuidNamespace)
+	docService, docUpstream, err = kong.CreateKongService(docBaseName, docServers, docServiceDefaults, docUpstreamDefaults, kongTags, opts.UuidNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service/upstream from document root: %w", err)
 	}
@@ -418,7 +464,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 				pathServers,
 				pathServiceDefaults,
 				pathUpstreamDefaults,
-				opts.Tags,
+				kongTags,
 				opts.UuidNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create service/updstream from path '%s': %w", path, err)
@@ -539,7 +585,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 					operationServers,
 					operationServiceDefaults,
 					operationUpstreamDefaults,
-					opts.Tags,
+					kongTags,
 					opts.UuidNamespace)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create service/updstream from operation '%s %s': %w", path, method, err)
@@ -607,7 +653,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			route["id"] = uuid.NewV5(opts.UuidNamespace, operationBaseName+".route").String()
 			route["name"] = operationBaseName
 			route["methods"] = []string{method}
-			route["tags"] = opts.Tags
+			route["tags"] = kongTags
 			route["strip_path"] = false // TODO: there should be some logic around defaults etc iirc
 
 			operationRoutes = append(operationRoutes, route)
