@@ -78,6 +78,34 @@ func setServerDefaults(targets []*url.URL, schemeDefault string) {
 	}
 }
 
+func parseDefaultTargets(targets interface{}, tags []string) ([]map[string]interface{}, error) {
+	// validate that its an array
+	var targetArray []interface{}
+	switch t := targets.(type) {
+	case []interface{}:
+		targetArray = t
+	default:
+		return nil, fmt.Errorf("expected 'targets' to be an array")
+	}
+
+	resultTargets := make([]map[string]interface{}, len(targetArray))
+	for i, targetInterface := range targetArray {
+		// validate entry to be a string map
+		var target map[string]interface{}
+		switch m := targetInterface.(type) {
+		case map[string]interface{}:
+			target = m
+		default:
+			return nil, fmt.Errorf("expected entries in 'targets' to be objects")
+		}
+
+		// just add/overwrite tags, nothing more to do
+		target["tags"] = tags
+		resultTargets[i] = target
+	}
+	return resultTargets, nil
+}
+
 // createKongUpstream create a new upstream entity.
 func createKongUpstream(
 	baseName string, // slugified name of the upstream, and uuid input
@@ -100,6 +128,18 @@ func createKongUpstream(
 	upstream["id"] = uuid.NewV5(uuidNamespace, upstreamName).String()
 	upstream["name"] = upstreamName
 	upstream["tags"] = tags
+
+	if upstream["targets"] != nil {
+		// if targets provided in the defaults, so use those
+		targets, err := parseDefaultTargets(upstream["targets"], tags)
+		if err != nil {
+			return nil, err
+		}
+		upstream["targets"] = targets
+		return upstream, nil
+	}
+
+	// no target array provided, so take from servers
 
 	// the server urls, will have minimum 1 entry on success
 	targets, err := parseServerUris(servers)

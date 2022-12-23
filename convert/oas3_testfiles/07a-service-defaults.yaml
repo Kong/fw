@@ -1,4 +1,4 @@
-# Some of the generated fields for service and upstream should be overridable
+# Some of the generated fields for services should be overridable
 # using the defaults.
 # These are the order in which we should take the values:
 # - service.protocol: x-kong-service-defaults -> servers[1].url (first entry servers block) -> default value "https"
@@ -6,7 +6,6 @@
 # - service.path: x-kong-service-defaults -> servers[1].url (first entry servers block) -> default to "/"
 # - service.host: x-kong-service-defaults -> if 1 url then servers[1].url (first entry servers block), if multiple create an upstream -> default to "localhost"
 #   Note: if a host default is specified, then no upstream should be generated
-# - upstream.targets: x-kong-upstream-defaults -> list of targets gotten from servers block -> default empty array
 
 openapi: '3.0.0'
 info:
