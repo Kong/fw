@@ -159,39 +159,49 @@ func CreateKongService(
 	}
 
 	// fill in the scheme of the url if missing. Use service-defaults for the default scheme
-	defaultScheme := "https"
+	scheme := "https"
 	if service["protocol"] != nil {
-		defaultScheme = service["protocol"].(string)
+		scheme = service["protocol"].(string)
 	}
-	setServerDefaults(targets, defaultScheme)
+	setServerDefaults(targets, scheme)
 
-	service["protocol"] = targets[0].Scheme
-	service["path"] = targets[0].Path
-	if targets[0].Port() != "" {
-		// port is provided, so parse it
-		service["port"], _ = strconv.ParseInt(targets[0].Port(), 10, 16)
-	} else {
-		// no port provided, so set it based on scheme, where https/443 is the default
-		if targets[0].Scheme != "http" {
-			service["port"] = 443
+	if service["protocol"] == nil {
+		scheme = targets[0].Scheme
+		service["protocol"] = scheme
+	}
+	if service["path"] == nil {
+		service["path"] = targets[0].Path
+	}
+	if service["port"] == nil {
+		if targets[0].Port() != "" {
+			// port is provided, so parse it
+			service["port"], _ = strconv.ParseInt(targets[0].Port(), 10, 16)
 		} else {
-			service["port"] = 80
+			// no port provided, so set it based on scheme, where https/443 is the default
+			if scheme != "http" {
+				service["port"] = 443
+			} else {
+				service["port"] = 80
+			}
 		}
 	}
 
 	// we need an upstream if;
 	// a) upstream defaults are provided, or
 	// b) there is more than one entry in the servers block
-	if len(targets) == 1 && upstreamDefaults == nil {
-		// have to create a simple service, no upstream, so just set the hostname
-		service["host"] = targets[0].Hostname()
-	} else {
-		// have to create an upstream with targets
-		upstream, err = createKongUpstream(baseName, servers, upstreamDefaults, tags, uuidNamespace)
-		if err != nil {
-			return nil, nil, err
+	// c) the service doesn't have a default host name
+	if service["host"] == nil {
+		if len(targets) == 1 && upstreamDefaults == nil {
+			// have to create a simple service, no upstream, so just set the hostname
+			service["host"] = targets[0].Hostname()
+		} else {
+			// have to create an upstream with targets
+			upstream, err = createKongUpstream(baseName, servers, upstreamDefaults, tags, uuidNamespace)
+			if err != nil {
+				return nil, nil, err
+			}
+			service["host"] = upstream["name"]
 		}
-		service["host"] = upstream["name"]
 	}
 
 	return service, upstream, nil
