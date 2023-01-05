@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"fw/convert"
 	"log"
 	"os"
 
+	"github.com/Kong/fw/convert"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/yaml.v2"
 )

@@ -1,4 +1,4 @@
-module fw
+module github.com/Kong/fw
 
 go 1.19
 

@@ -3,10 +3,11 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
-	"fw/kong"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/Kong/fw/kong"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	uuid "github.com/satori/go.uuid"
