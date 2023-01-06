@@ -640,8 +640,9 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 
 			// convert path parameters to regex captures
 			re, _ := regexp.Compile("{([^}]+)}")
-			if matches := re.FindAllString(path, -1); matches != nil {
-				for _, varName := range matches {
+			if matches := re.FindAllStringSubmatch(path, -1); matches != nil {
+				for _, match := range matches {
+					varName := match[1]
 					// match single segment; '/', '?', and '#' can mark the end of a segment
 					// see https://github.com/OAI/OpenAPI-Specification/issues/291#issuecomment-316593913
 					regexMatch := "(?<" + varName + ">[^#?/]+)"

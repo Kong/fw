@@ -1,0 +1,33 @@
+# The {something} parameter should be converted to a regex
+openapi: 3.0.3
+info:
+  title: Path parameter test
+  version: v1
+servers:
+  - url: "https://example.com"
+
+paths:
+  /demo/{something}/else:
+    get:
+      tags: [demo]
+      operationId: create
+      description: This is a demo OAS
+      parameters:
+        - in: path
+          name: something
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: The user ID
+      responses:
+        "200":
+          description: OK
+          content:
+            "application/json":
+              schema:
+                properties:
+                  status:
+                    type: string
+tags:
+  - name: demo
