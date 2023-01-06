@@ -3,33 +3,33 @@
   "services": [
     {
       "host": "example.com",
-      "id": "520e4991-2d1a-59b8-bf2e-579cca0969a0",
-      "name": "path-parameter-test",
+      "id": "5434f850-a000-5ad5-8772-1a3cd10811e6",
+      "name": "server-with-no-trailing-slash",
       "path": "/",
       "plugins": [],
       "port": 443,
       "protocol": "https",
       "routes": [
         {
-          "id": "e97557be-3897-52e3-8b56-92b703d3fb73",
+          "id": "7d6c6daa-9b04-5e64-8903-0ecd06e02565",
           "methods": [
             "GET"
           ],
-          "name": "path-parameter-test_create",
+          "name": "server-with-no-trailing-slash_list",
           "paths": [
-            "~/demo/(?<something>[^#?/]+)/else$"
+            "~/demo$"
           ],
           "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",
-            "OAS3file_12-path-regex.yaml"
+            "OAS3file_13-server-no-trailing-slash.yaml"
           ]
         }
       ],
       "tags": [
         "OAS3_import",
-        "OAS3file_12-path-regex.yaml"
+        "OAS3file_13-server-no-trailing-slash.yaml"
       ]
     }
   ],

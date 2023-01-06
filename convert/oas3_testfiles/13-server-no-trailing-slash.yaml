@@ -1,0 +1,26 @@
+# servers[0].url doesn't have a trailing slash
+# service.url should be "/"" not ""
+openapi: 3.0.3
+info:
+  title: Server with no trailing slash
+  version: v1
+servers:
+  - url: "https://example.com"
+
+paths:
+  /demo:
+    get:
+      tags: [demo]
+      operationId: list
+      description: This is a demo OAS
+      responses:
+        "200":
+          description: OK
+          content:
+            "application/json":
+              schema:
+                properties:
+                  status:
+                    type: string
+tags:
+  - name: demo
