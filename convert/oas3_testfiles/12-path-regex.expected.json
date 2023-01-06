@@ -1,0 +1,37 @@
+{
+  "_format_version": "3.0",
+  "services": [
+    {
+      "host": "example.com",
+      "id": "520e4991-2d1a-59b8-bf2e-579cca0969a0",
+      "name": "path-parameter-test",
+      "path": "",
+      "plugins": [],
+      "port": 443,
+      "protocol": "https",
+      "routes": [
+        {
+          "id": "e97557be-3897-52e3-8b56-92b703d3fb73",
+          "methods": [
+            "GET"
+          ],
+          "name": "path-parameter-test_create",
+          "paths": [
+            "~/demo/(?<something>[^#?/]+)/else$"
+          ],
+          "plugins": [],
+          "strip_path": false,
+          "tags": [
+            "OAS3_import",
+            "OAS3file_12-path-regex.yaml"
+          ]
+        }
+      ],
+      "tags": [
+        "OAS3_import",
+        "OAS3file_12-path-regex.yaml"
+      ]
+    }
+  ],
+  "upstreams": []
+}
