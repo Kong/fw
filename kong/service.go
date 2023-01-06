@@ -210,7 +210,13 @@ func CreateKongService(
 		service["protocol"] = scheme
 	}
 	if service["path"] == nil {
-		service["path"] = targets[0].Path
+		sp := targets[0].Path
+		// Server blocks generally don't have a trailing slash in OAS files
+		// If .Path is empty, default to /
+		if sp == "" {
+			sp = "/"
+		}
+		service["path"] = sp
 	}
 	if service["port"] == nil {
 		if targets[0].Port() != "" {
