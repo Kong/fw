@@ -11,25 +11,25 @@
       "protocol": "https",
       "routes": [
         {
-          "id": "e97557be-3897-52e3-8b56-92b703d3fb73",
+          "id": "0da1f8dc-e918-5379-b3b0-ffc061ae1691",
           "methods": [
             "GET"
           ],
-          "name": "path-parameter-test_create",
+          "name": "path-parameter-test_opsid",
           "paths": [
-            "~/demo/(?<something>[^#?/]+)/else$"
+            "~/demo/(?<something>[^#?/]+)/else/(?<todo>[^#?/]+)/$"
           ],
           "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",
-            "OAS3file_12-path-regex.yaml"
+            "OAS3file_12-path-parameter-regex.yaml"
           ]
         }
       ],
       "tags": [
         "OAS3_import",
-        "OAS3file_12-path-regex.yaml"
+        "OAS3file_12-path-parameter-regex.yaml"
       ]
     }
   ],

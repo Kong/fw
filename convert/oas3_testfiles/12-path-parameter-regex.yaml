@@ -1,0 +1,28 @@
+# The path parameters should be converted to a regex for matching the route.
+# Including creating captures of the parameter values.
+
+openapi: 3.0.3
+info:
+  title: Path parameter test
+  version: v1
+servers:
+  - url: "https://example.com"
+
+paths:
+  /demo/{something}/else/{todo}/:
+    get:
+      operationId: opsid
+      parameters:
+        - in: path
+          name: something
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: todo
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
