@@ -35,6 +35,10 @@ func parseServerUris(servers *openapi3.Servers) ([]*url.URL, error) {
 				return targets, fmt.Errorf("failed to parse uri '%s'; %w", uriString, err)
 			}
 
+			if uriObject.Path == "" {
+				uriObject.Path = "/" // path '/' is the default
+			}
+
 			targets[i] = uriObject
 		}
 	}
@@ -210,13 +214,7 @@ func CreateKongService(
 		service["protocol"] = scheme
 	}
 	if service["path"] == nil {
-		sp := targets[0].Path
-		// Server blocks generally don't have a trailing slash in OAS files
-		// If .Path is empty, default to /
-		if sp == "" {
-			sp = "/"
-		}
-		service["path"] = sp
+		service["path"] = targets[0].Path
 	}
 	if service["port"] == nil {
 		if targets[0].Port() != "" {

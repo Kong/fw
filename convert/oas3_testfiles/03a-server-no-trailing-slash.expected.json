@@ -11,25 +11,25 @@
       "protocol": "https",
       "routes": [
         {
-          "id": "7d6c6daa-9b04-5e64-8903-0ecd06e02565",
+          "id": "d44c95fe-dc1c-596c-8b4a-e18ff50607c4",
           "methods": [
             "GET"
           ],
-          "name": "server-with-no-trailing-slash_list",
+          "name": "server-with-no-trailing-slash_myid",
           "paths": [
-            "~/demo$"
+            "~/path$"
           ],
           "plugins": [],
           "strip_path": false,
           "tags": [
             "OAS3_import",
-            "OAS3file_13-server-no-trailing-slash.yaml"
+            "OAS3file_03a-server-no-trailing-slash.yaml"
           ]
         }
       ],
       "tags": [
         "OAS3_import",
-        "OAS3file_13-server-no-trailing-slash.yaml"
+        "OAS3file_03a-server-no-trailing-slash.yaml"
       ]
     }
   ],
