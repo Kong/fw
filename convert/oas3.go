@@ -33,6 +33,22 @@ func (opts *O2kOptions) setDefaults() {
 	}
 }
 
+// getDefaultParamStyles returns default styles per OAS parameter-type.
+func getDefaultParamStyle(givenStyle string, paramType string) string {
+	// should be a constant, but maps cannot be constants
+	styles := map[string]string{
+		"header": "simple",
+		"cookie": "form",
+		"query":  "form",
+		"path":   "simple",
+	}
+
+	if givenStyle == "" {
+		return styles[paramType]
+	}
+	return givenStyle
+}
+
 // getKongName returns the provided tags or if nil, then the `x-kong-tags` property,
 // validated to be a string array. If there is no error, then there will always be
 // an array returned for safe access later in the process.
@@ -283,6 +299,220 @@ func getPluginsList(
 	return &sorted, nil
 }
 
+// getValidatorPlugin will remove the request validator config from the plugin list
+// and return it as a JSON string, along with the updated plugin list. If there
+// is none, the returned config will be the currentConfig.
+func getValidatorPlugin(list *[]*map[string]interface{}, currentConfig []byte) ([]byte, *[]*map[string]interface{}) {
+	for i, plugin := range *list {
+		pluginName := (*plugin)["name"].(string) // safe because it was previously parsed
+		if pluginName == "request-validator" {
+			// found it. Serialize to JSON and remove from list
+			jsonConfig, _ := json.Marshal(plugin)
+			l := append((*list)[:i], (*list)[i+1:]...)
+			return jsonConfig, &l
+		}
+	}
+
+	// no validator config found, so current config remains valid
+	return currentConfig, list
+}
+
+// generateParameterSchema returns the given schema if there is one, a generated
+// schema if it was specified, or nil if there is none.
+// Parameters include path, query, and headers
+func generateParameterSchema(operation *openapi3.Operation) *[]map[string]interface{} {
+	parameters := operation.Parameters
+	if parameters == nil {
+		return nil
+	}
+
+	if len(parameters) == 0 {
+		return nil
+	}
+
+	result := make([]map[string]interface{}, len(parameters))
+	i := 0
+	for _, parameterRef := range parameters {
+		paramValue := parameterRef.Value
+
+		var explode bool
+		if paramValue.Explode == nil {
+			explode = false
+		} else {
+			explode = *paramValue.Explode
+		}
+
+		if paramValue != nil {
+			paramConf := make(map[string]interface{})
+			paramConf["explode"] = explode
+			paramConf["in"] = paramValue.In
+			paramConf["name"] = paramValue.Name
+			paramConf["required"] = paramValue.Required
+			schema, _ := paramValue.Schema.Value.MarshalJSON()
+			paramConf["schema"] = string(schema)
+			paramConf["style"] = getDefaultParamStyle(paramValue.Style, paramValue.In)
+			result[i] = paramConf
+			i++
+		}
+	}
+
+	return &result
+}
+
+// generateBodySchema returns the given schema if there is one, a generated
+// schema if it was specified, or "" if there is none.
+func generateBodySchema(operation *openapi3.Operation) string {
+
+	requestBody := operation.RequestBody
+	if requestBody == nil {
+		return ""
+	}
+
+	requestBodyValue := requestBody.Value
+	if requestBodyValue == nil {
+		return ""
+	}
+
+	content := requestBodyValue.Content
+	if content == nil {
+		return ""
+	}
+
+	for contentType, content := range content {
+		if strings.Contains(strings.ToLower(contentType), "application/json") {
+			schema := (*content).Schema
+			if schema == nil {
+				return ""
+			}
+			schemaValue := schema.Value
+			if schemaValue == nil {
+				return ""
+			}
+			jsonSchema, _ := schemaValue.MarshalJSON()
+			return string(jsonSchema)
+		}
+	}
+
+	return ""
+}
+
+// generateContentTypes returns an array of allowed content types. nil if none.
+func generateContentTypes(operation *openapi3.Operation) *[]string {
+
+	requestBody := operation.RequestBody
+	if requestBody == nil {
+		return nil
+	}
+
+	requestBodyValue := requestBody.Value
+	if requestBodyValue == nil {
+		return nil
+	}
+
+	content := requestBodyValue.Content
+	if content == nil {
+		return nil
+	}
+
+	if len(content) == 0 {
+		return nil
+	}
+
+	list := make([]string, len(content))
+	i := 0
+	for contentType := range content {
+		list[i] = contentType
+		i++
+	}
+
+	return &list
+}
+
+// generateValidatorPlugin generates the validator plugin configuration, based
+// on the JSON snippet, and the OAS inputs. This can return nil
+func generateValidatorPlugin(configJson []byte, operation *openapi3.Operation,
+	uuidNamespace uuid.UUID,
+	baseName string) *map[string]interface{} {
+	if len(configJson) == 0 {
+		return nil
+	}
+
+	var pluginConfig map[string]interface{}
+	json.Unmarshal(configJson, &pluginConfig)
+
+	// create a new ID here based on the operation
+	pluginConfig["id"] = createPluginId(uuidNamespace, baseName, pluginConfig)
+
+	config, _ := toJsonObject(pluginConfig["config"])
+	if config == nil {
+		config = make(map[string]interface{})
+		pluginConfig["config"] = config
+	}
+
+	if config["parameter_schema"] == nil {
+		parameterSchema := generateParameterSchema(operation)
+		if parameterSchema != nil {
+			config["parameter_schema"] = parameterSchema
+			config["version"] = "draft4"
+		}
+	}
+
+	if config["body_schema"] == nil {
+		bodySchema := generateBodySchema(operation)
+		if bodySchema != "" {
+			config["body_schema"] = bodySchema
+			config["version"] = "draft4"
+		} else {
+			if config["parameter_schema"] == nil {
+				// neither parameter nor body schema given, there is nothing to validate
+				// unless the content-types have been provided by the user
+				if config["allowed_content_types"] == nil {
+					// also not provided, so really nothing to validate, don't add a plugin
+					return nil
+				} else {
+					// add an empty schema, which passes everything, but it also activates the
+					// content-type check
+					config["body_schema"] = "{}"
+					config["version"] = "draft4"
+				}
+			}
+		}
+	}
+
+	if config["allowed_content_types"] == nil {
+		contentTypes := generateContentTypes(operation)
+		if contentTypes != nil {
+			config["allowed_content_types"] = contentTypes
+		}
+	}
+
+	return &pluginConfig
+}
+
+// insertPlugin will insert a plugin in the list array, in a sorted manner.
+// List must already be sorted by plugin-name.
+func insertPlugin(list *[]*map[string]interface{}, plugin *map[string]interface{}) *[]*map[string]interface{} {
+	if plugin == nil {
+		return list
+	}
+
+	newPluginName := (*plugin)["name"].(string) // safe because it was previously parsed
+
+	for i, config := range *list {
+		pluginName := (*config)["name"].(string) // safe because it was previously parsed
+		if pluginName > newPluginName {
+			l := (*list)[:i-1]
+			l = append(l, config)
+			l = append(l, (*list)[:i]...)
+			return &l
+		}
+	}
+
+	// it's the last one, append it
+	l := append(*list, plugin)
+	return &l
+}
+
 // ConvertOas3 converts an OpenAPI spec to a Kong declarative file.
 func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 	opts.setDefaults()
@@ -307,6 +537,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		docUpstream         map[string]interface{}     // upstream entity in use on document level
 		docRouteDefaults    []byte                     // JSON string representation of route-defaults on document level
 		docPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
+		docValidatorConfig  []byte                     // JSON string representation of validator config to generate
 
 		pathBaseName         string                     // the slugified basename for the path
 		pathServers          *openapi3.Servers          // servers block on current path level
@@ -316,6 +547,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		pathUpstream         map[string]interface{}     // upstream entity in use on path level
 		pathRouteDefaults    []byte                     // JSON string representation of route-defaults on path level
 		pathPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
+		pathValidatorConfig  []byte                     // JSON string representation of validator config to generate
 
 		operationBaseName         string                     // the slugified basename for the operation
 		operationServers          *openapi3.Servers          // servers block on current operation level
@@ -325,6 +557,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		operationUpstream         map[string]interface{}     // upstream entity in use on operation level
 		operationRouteDefaults    []byte                     // JSON string representation of route-defaults on operation level
 		operationPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
+		operationValidatorConfig  []byte                     // JSON string representation of validator config to generate
 	)
 
 	// Load and parse the OAS file
@@ -390,6 +623,10 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugins list from document root: %w", err)
 	}
+
+	// Extract the request-validator config from the plugin list
+	docValidatorConfig, docPluginList = getValidatorPlugin(docPluginList, docValidatorConfig)
+
 	docService["plugins"] = docPluginList
 
 	//
@@ -476,6 +713,10 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
 			}
+
+			// Extract the request-validator config from the plugin list
+			pathValidatorConfig, pathPluginList = getValidatorPlugin(pathPluginList, docValidatorConfig)
+
 			pathService["plugins"] = pathPluginList
 
 			services = append(services, pathService)
@@ -498,6 +739,9 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
 			}
+
+			// Extract the request-validator config from the plugin list
+			pathValidatorConfig, pathPluginList = getValidatorPlugin(pathPluginList, docValidatorConfig)
 		}
 
 		//
@@ -627,6 +871,11 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from operation item: %w", err)
 			}
+
+			// Extract the request-validator config from the plugin list, generate it and reinsert
+			operationValidatorConfig, operationPluginList = getValidatorPlugin(operationPluginList, pathValidatorConfig)
+			validatorPlugin := generateValidatorPlugin(operationValidatorConfig, operation, opts.UuidNamespace, operationBaseName)
+			operationPluginList = insertPlugin(operationPluginList, validatorPlugin)
 
 			// construct the route
 			var route map[string]interface{}

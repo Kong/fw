@@ -1,3 +1,6 @@
+# When the request-validator is added without a body or parameter schema
+# the generator should automatically generate it.
+
 openapi: 3.0.2
 
 info:
@@ -7,7 +10,7 @@ info:
 servers:
   - url: http://backend.com/path
 
-x-kong-plugin-request-validator:
+x-kong-plugin-request-validator: {}
 
 paths:
   /global:
@@ -17,12 +20,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/jsonSchema'
+      responses:
+        "200":
+          description: OK
   /params/{pathid}/:
     get:
       x-kong-plugin-request-validator:
         enabled: true
         config:
-          body_scheme: '{}'
+          body_schema: '{}'
       parameters:
         - in: query
           name: queryid
@@ -44,6 +50,9 @@ paths:
           schema:
             type: integer
           required: true
+      responses:
+        "200":
+          description: OK
   /body:
     post:
       requestBody:
@@ -54,6 +63,9 @@ paths:
           application/xml:
             schema:
               $ref: '#/components/schemas/xmlSchema'
+      responses:
+        "200":
+          description: OK
 
 components:
   schemas:
