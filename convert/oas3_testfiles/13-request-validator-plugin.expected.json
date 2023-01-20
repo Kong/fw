@@ -1,27 +1,24 @@
 {
-  "_format_version": "1.1",
+  "_format_version": "3.0",
   "services": [
     {
-      "protocol": "http",
       "host": "backend.com",
-      "port": 80,
+      "id": "730d612d-914b-5fe8-8ead-e6aa654318ef",
+      "name": "example",
       "path": "/path",
-      "name": "Example",
-      "plugins": [
-        {
-          "config": {
-            "body_schema": "{}",
-            "version": "draft4"
-          },
-          "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"],
-          "name": "request-validator"
-        }
-      ],
+      "plugins": [],
+      "port": 80,
+      "protocol": "http",
       "routes": [
         {
-          "methods": ["POST"],
-          "name": "Example-body-post",
-          "paths": ["/body$"],
+          "id": "2a2f7451-7df1-5c42-8f6c-5319ae6e4936",
+          "methods": [
+            "POST"
+          ],
+          "name": "example_body_post",
+          "paths": [
+            "~/body$"
+          ],
           "plugins": [
             {
               "config": {
@@ -29,41 +26,60 @@
                   "application/json",
                   "application/xml"
                 ],
-                "body_schema": "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}}}",
+                "body_schema": "{\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}},\"type\":\"object\"}",
                 "version": "draft4"
               },
-              "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"],
+              "id": "ce17156b-dfb5-55f0-86b4-9abeb919bae3",
               "name": "request-validator"
             }
           ],
           "strip_path": false,
-          "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"]
+          "tags": [
+            "OAS3_import",
+            "OAS3file_13-request-validator-plugin.yaml"
+          ]
         },
         {
-          "methods": ["GET"],
-          "name": "Example-global-get",
-          "paths": ["/global$"],
+          "id": "6d59c2fe-e723-5238-a847-d87d8e8bb7fc",
+          "methods": [
+            "GET"
+          ],
+          "name": "example_global_get",
+          "paths": [
+            "~/global$"
+          ],
           "plugins": [
             {
               "config": {
-                "allowed_content_types": ["application/json"],
-                "body_schema": "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}}}",
+                "allowed_content_types": [
+                  "application/json"
+                ],
+                "body_schema": "{\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}},\"type\":\"object\"}",
                 "version": "draft4"
               },
-              "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"],
+              "id": "2b68c247-3cab-54a1-a98b-cb6100caf370",
               "name": "request-validator"
             }
           ],
           "strip_path": false,
-          "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"]
+          "tags": [
+            "OAS3_import",
+            "OAS3file_13-request-validator-plugin.yaml"
+          ]
         },
         {
-          "methods": ["GET"],
-          "name": "Example-params-pathid-get",
-          "paths": ["/params/(?<pathid>[^/]+)/$"],
+          "id": "970623f5-d00f-5cd5-9071-b4bce41549a8",
+          "methods": [
+            "GET"
+          ],
+          "name": "example_params-pathid_get",
+          "paths": [
+            "~/params/(?\u003cpathid\u003e[^#?/]+)/$"
+          ],
           "plugins": [
             {
               "config": {
+                "body_schema": "{}",
                 "parameter_schema": [
                   {
                     "explode": false,
@@ -101,15 +117,22 @@
                 "version": "draft4"
               },
               "enabled": true,
-              "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"],
+              "id": "2e10f59b-08d4-5566-9330-dfe6fcb471f5",
               "name": "request-validator"
             }
           ],
           "strip_path": false,
-          "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"]
+          "tags": [
+            "OAS3_import",
+            "OAS3file_13-request-validator-plugin.yaml"
+          ]
         }
       ],
-      "tags": ["OAS3_import", "OAS3file_request-validator-plugin.yaml"]
+      "tags": [
+        "OAS3_import",
+        "OAS3file_13-request-validator-plugin.yaml"
+      ]
     }
-  ]
+  ],
+  "upstreams": []
 }

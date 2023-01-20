@@ -78,12 +78,12 @@ x-kong-plugin-correlation-id:
 # will be copied over accordingly (for example by having "servers" objects, or Upstream or
 # Service defaults specified on those levels).
 
-# x-kong-plugin-request-validator:
-#   config:
-#     #body_schema: {}
-#     #parameter_schema: {}
-#     verbose_response: true
-# TODO: implement this
+x-kong-plugin-request-validator:
+  config:
+    #body_schema: {}
+    #parameter_schema: {}
+    #allowed_content_types: {}
+    verbose_response: true
 # here we're using the request validator plugin, without specifying the
 # "config.body_schema" and "config.parameter_schema" properties.
 # This will tell the parser to automatically generate

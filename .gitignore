@@ -16,3 +16,6 @@
 
 # generated test files
 convert/oas3_testfiles/*.generated.json
+
+# the binary
+fw
