@@ -1,3 +1,7 @@
+# JSONschema's can contain references to the "/components/schemas/" section
+# those references can also be recursive.
+# This file tests a recursive schema being properly extracted.
+
 openapi: 3.0.1
 
 info:
