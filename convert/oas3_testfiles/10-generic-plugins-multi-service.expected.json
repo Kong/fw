@@ -13,7 +13,11 @@
             "status_code": 403
           },
           "id": "ef93d30f-dc7d-581b-8b1b-3f8942a0d171",
-          "name": "request-termination"
+          "name": "request-termination",
+          "tags": [
+            "OAS3_import",
+            "OAS3file_10-generic-plugins-multi-service.yaml"
+          ]
         }
       ],
       "port": 443,
@@ -53,11 +57,19 @@
             "status_code": 403
           },
           "id": "e1095950-df7f-5747-afd1-36355f4510ae",
-          "name": "request-termination"
+          "name": "request-termination",
+          "tags": [
+            "OAS3_import",
+            "OAS3file_10-generic-plugins-multi-service.yaml"
+          ]
         },
         {
           "id": "44b80499-0367-5fb6-b1b3-3d0e3281acad",
-          "name": "some-plugin1"
+          "name": "some-plugin1",
+          "tags": [
+            "OAS3_import",
+            "OAS3file_10-generic-plugins-multi-service.yaml"
+          ]
         }
       ],
       "port": 443,
@@ -75,7 +87,11 @@
           "plugins": [
             {
               "id": "a9ddfff9-6672-5471-84a7-bfccae5d74b2",
-              "name": "some-plugin2"
+              "name": "some-plugin2",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_10-generic-plugins-multi-service.yaml"
+              ]
             }
           ],
           "strip_path": false,
@@ -115,15 +131,27 @@
                 "status_code": 403
               },
               "id": "4a6df652-011a-5f76-b1b4-460ab5c86da9",
-              "name": "request-termination"
+              "name": "request-termination",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_10-generic-plugins-multi-service.yaml"
+              ]
             },
             {
               "id": "2736254d-7317-5d57-a9e9-9b3cf1c6489e",
-              "name": "some-plugin1"
+              "name": "some-plugin1",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_10-generic-plugins-multi-service.yaml"
+              ]
             },
             {
               "id": "c8d30b7f-fc60-5791-b31a-7bf6eb83b0b3",
-              "name": "some-plugin3"
+              "name": "some-plugin3",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_10-generic-plugins-multi-service.yaml"
+              ]
             }
           ],
           "strip_path": false,

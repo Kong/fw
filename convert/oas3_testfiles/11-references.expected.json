@@ -12,7 +12,11 @@
             "path": "/dev/stderr"
           },
           "id": "b4eb8681-bd93-5d4b-9c19-702a9452e972",
-          "name": "file-log"
+          "name": "file-log",
+          "tags": [
+            "OAS3_import",
+            "OAS3file_11-references.yaml"
+          ]
         }
       ],
       "port": 443,

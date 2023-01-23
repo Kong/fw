@@ -49,7 +49,7 @@ func getDefaultParamStyle(givenStyle string, paramType string) string {
 	return givenStyle
 }
 
-// getKongName returns the provided tags or if nil, then the `x-kong-tags` property,
+// getKongTags returns the provided tags or if nil, then the `x-kong-tags` property,
 // validated to be a string array. If there is no error, then there will always be
 // an array returned for safe access later in the process.
 func getKongTags(doc *openapi3.T, tagsProvided *[]string) ([]string, error) {
@@ -229,7 +229,8 @@ func getPluginsList(
 	pluginsToInclude *[]*map[string]interface{},
 	uuidNamespace uuid.UUID,
 	baseName string,
-	components *map[string]interface{}) (*[]*map[string]interface{}, error) {
+	components *map[string]interface{},
+	tags []string) (*[]*map[string]interface{}, error) {
 
 	plugins := make(map[string]*map[string]interface{})
 
@@ -245,6 +246,8 @@ func getPluginsList(
 
 			// generate a new ID, for a new plugin, based on new basename
 			configCopy["id"] = createPluginId(uuidNamespace, baseName, configCopy)
+
+			configCopy["tags"] = tags
 
 			plugins[pluginName] = &configCopy
 		}
@@ -277,6 +280,7 @@ func getPluginsList(
 					}
 				}
 				pluginConfig["id"] = createPluginId(uuidNamespace, baseName, pluginConfig)
+				pluginConfig["tags"] = tags
 
 				plugins[pluginName] = &pluginConfig
 			}
@@ -619,7 +623,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// attach plugins
-	docPluginList, err = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, docBaseName, kongComponents)
+	docPluginList, err = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, docBaseName, kongComponents, kongTags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugins list from document root: %w", err)
 	}
@@ -709,7 +713,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			}
 
 			// collect path plugins, including the doc-level plugins since we have a new service entity
-			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, docPluginList, opts.UuidNamespace, pathBaseName, kongComponents)
+			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, docPluginList, opts.UuidNamespace, pathBaseName, kongComponents, kongTags)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
 			}
@@ -735,7 +739,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			pathService = docService
 
 			// collect path plugins, only the path level, since we're on the doc-level service-entity
-			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, nil, opts.UuidNamespace, pathBaseName, kongComponents)
+			pathPluginList, err = getPluginsList(pathitem.ExtensionProps, nil, opts.UuidNamespace, pathBaseName, kongComponents, kongTags)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from path item: %w", err)
 			}
@@ -856,17 +860,17 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			if !newOperationService && !newPathService {
 				// we're operating on the doc-level service entity, so we need the plugins
 				// from the path and operation
-				operationPluginList, err = getPluginsList(operation.ExtensionProps, pathPluginList, opts.UuidNamespace, operationBaseName, kongComponents)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, pathPluginList, opts.UuidNamespace, operationBaseName, kongComponents, kongTags)
 			} else if newOperationService {
 				// we're operating on an operation-level service entity, so we need the plugins
 				// from the document, path, and operation.
-				operationPluginList, _ = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, operationBaseName, kongComponents)
-				operationPluginList, _ = getPluginsList(pathitem.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName, kongComponents)
-				operationPluginList, err = getPluginsList(operation.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName, kongComponents)
+				operationPluginList, _ = getPluginsList(doc.ExtensionProps, nil, opts.UuidNamespace, operationBaseName, kongComponents, kongTags)
+				operationPluginList, _ = getPluginsList(pathitem.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName, kongComponents, kongTags)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, operationPluginList, opts.UuidNamespace, operationBaseName, kongComponents, kongTags)
 			} else if newPathService {
 				// we're operating on a path-level service entity, so we only need the plugins
 				// from the operation.
-				operationPluginList, err = getPluginsList(operation.ExtensionProps, nil, opts.UuidNamespace, operationBaseName, kongComponents)
+				operationPluginList, err = getPluginsList(operation.ExtensionProps, nil, opts.UuidNamespace, operationBaseName, kongComponents, kongTags)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("failed to create plugins list from operation item: %w", err)
