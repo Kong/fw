@@ -26,7 +26,7 @@
                   "application/json",
                   "application/xml"
                 ],
-                "body_schema": "{\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}},\"type\":\"object\"}",
+                "body_schema": "{\"$ref\":\"#/definitions/jsonSchema\",\"definitions\":{\"jsonSchema\":{\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}},\"type\":\"object\"}}}",
                 "version": "draft4"
               },
               "id": "ce17156b-dfb5-55f0-86b4-9abeb919bae3",
@@ -58,7 +58,7 @@
                 "allowed_content_types": [
                   "application/json"
                 ],
-                "body_schema": "{\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}},\"type\":\"object\"}",
+                "body_schema": "{\"$ref\":\"#/definitions/jsonSchema\",\"definitions\":{\"jsonSchema\":{\"properties\":{\"id\":{\"type\":\"integer\"},\"name\":{\"type\":\"string\"}},\"type\":\"object\"}}}",
                 "version": "draft4"
               },
               "id": "2b68c247-3cab-54a1-a98b-cb6100caf370",
