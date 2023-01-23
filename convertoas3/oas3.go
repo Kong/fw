@@ -1,4 +1,4 @@
-package convert
+package convertoas3
 
 import (
 	"encoding/json"
@@ -7,9 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Kong/fw/kong"
-
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/mozillazg/go-slugify"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -31,6 +30,17 @@ func (opts *O2kOptions) setDefaults() {
 	if uuid.Equal(emptyUuid, opts.UuidNamespace) {
 		opts.UuidNamespace = uuid.NamespaceDNS
 	}
+}
+
+// Slugify converts a name to a valid Kong name by removing and replacing unallowed characters
+// and sanitizing non-latin characters
+func Slugify(name ...string) string {
+
+	for i, elem := range name {
+		name[i] = slugify.Slugify(elem)
+	}
+
+	return strings.Join(name, "_")
 }
 
 // getDefaultParamStyles returns default styles per OAS parameter-type.
@@ -577,8 +587,8 @@ func insertPlugin(list *[]*map[string]interface{}, plugin *map[string]interface{
 	return &l
 }
 
-// ConvertOas3 converts an OpenAPI spec to a Kong declarative file.
-func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
+// Convert converts an OpenAPI spec to a Kong declarative file.
+func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 	opts.setDefaults()
 
 	// set up output document
@@ -655,7 +665,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			docBaseName = doc.Info.Title
 		}
 	}
-	docBaseName = kong.Slugify(docBaseName)
+	docBaseName = Slugify(docBaseName)
 
 	if kongComponents, err = getXKongComponents(doc); err != nil {
 		return nil, err
@@ -673,7 +683,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 	}
 
 	// create the top-level docService and (optional) docUpstream
-	docService, docUpstream, err = kong.CreateKongService(docBaseName, docServers, docServiceDefaults, docUpstreamDefaults, kongTags, opts.UuidNamespace)
+	docService, docUpstream, err = CreateKongService(docBaseName, docServers, docServiceDefaults, docUpstreamDefaults, kongTags, opts.UuidNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service/upstream from document root: %w", err)
 	}
@@ -718,7 +728,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		if pathBaseName == "" {
 			pathBaseName = path
 		}
-		pathBaseName = docBaseName + "_" + kong.Slugify(pathBaseName)
+		pathBaseName = docBaseName + "_" + Slugify(pathBaseName)
 
 		// Set up the defaults on the Path level
 		newPathService := false
@@ -761,7 +771,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 		// create a new service if we need to do so
 		if newPathService {
 			// create the path-level service and (optional) upstream
-			pathService, pathUpstream, err = kong.CreateKongService(
+			pathService, pathUpstream, err = CreateKongService(
 				pathBaseName,
 				pathServers,
 				pathServiceDefaults,
@@ -836,15 +846,15 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			}
 			if operationBaseName != "" {
 				// an x-kong-name was provided, so build as "doc-path-name"
-				operationBaseName = pathBaseName + "_" + kong.Slugify(operationBaseName)
+				operationBaseName = pathBaseName + "_" + Slugify(operationBaseName)
 			} else {
 				operationBaseName = operation.OperationID
 				if operationBaseName == "" {
 					// no operation ID provided, so build as "doc-path-method"
-					operationBaseName = pathBaseName + "_" + kong.Slugify(method)
+					operationBaseName = pathBaseName + "_" + Slugify(method)
 				} else {
 					// operation ID is provided, so build as "doc-operationid"
-					operationBaseName = docBaseName + "_" + kong.Slugify(operationBaseName)
+					operationBaseName = docBaseName + "_" + Slugify(operationBaseName)
 				}
 			}
 
@@ -889,7 +899,7 @@ func ConvertOas3(content *[]byte, opts O2kOptions) (map[string]interface{}, erro
 			// create a new service if we need to do so
 			if newOperationService {
 				// create the operation-level service and (optional) upstream
-				operationService, operationUpstream, err = kong.CreateKongService(
+				operationService, operationUpstream, err = CreateKongService(
 					operationBaseName,
 					operationServers,
 					operationServiceDefaults,

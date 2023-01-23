@@ -1,4 +1,4 @@
-package convert
+package convertoas3
 
 import (
 	"encoding/json"
@@ -25,7 +25,7 @@ func Test_ConvertOas3(t *testing.T) {
 			fileNameExpected := strings.TrimSuffix(fileNameIn, ".yaml") + ".expected.json"
 			fileNameOut := strings.TrimSuffix(fileNameIn, ".yaml") + ".generated.json"
 			dataIn, _ := os.ReadFile(fixturePath + fileNameIn)
-			dataOut, err := ConvertOas3(&dataIn, O2kOptions{
+			dataOut, err := Convert(&dataIn, O2kOptions{
 				Tags: &[]string{"OAS3_import", "OAS3file_" + fileNameIn},
 			})
 			if err != nil {

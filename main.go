@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Kong/fw/convert"
+	"github.com/Kong/fw/convertoas3"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/yaml.v2"
 )
@@ -81,7 +81,7 @@ func main() {
 	uuidNamespace := uuid.NamespaceDNS
 
 	// do the work: read/convert/write
-	options := convert.O2kOptions{
+	options := convertoas3.O2kOptions{
 		// Tags:          &tags,
 		DocName:       docName,
 		UuidNamespace: uuidNamespace,
@@ -89,7 +89,7 @@ func main() {
 
 	content := mustReadFile(filenameIn)
 
-	result, err := convert.ConvertOas3(&content, options)
+	result, err := convertoas3.Convert(&content, options)
 	if err != nil {
 		log.Fatal(err)
 	}

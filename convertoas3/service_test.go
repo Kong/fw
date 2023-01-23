@@ -1,4 +1,4 @@
-package kong
+package convertoas3
 
 import (
 	"net/url"
