@@ -401,6 +401,7 @@ func generateBodySchema(operation *openapi3.Operation) string {
 }
 
 // generateContentTypes returns an array of allowed content types. nil if none.
+// Returned array will be sorted by name for deterministic comparisons.
 func generateContentTypes(operation *openapi3.Operation) *[]string {
 
 	requestBody := operation.RequestBody
@@ -428,6 +429,7 @@ func generateContentTypes(operation *openapi3.Operation) *[]string {
 		list[i] = contentType
 		i++
 	}
+	sort.Strings(list)
 
 	return &list
 }
