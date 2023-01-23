@@ -13,7 +13,11 @@
             "status_code": 403
           },
           "id": "ef93d30f-dc7d-581b-8b1b-3f8942a0d171",
-          "name": "request-termination"
+          "name": "request-termination",
+          "tags": [
+            "OAS3_import",
+            "OAS3file_09-generic-plugins.yaml"
+          ]
         }
       ],
       "port": 443,
@@ -51,7 +55,11 @@
                 "status_code": 403
               },
               "id": "aa56031e-7155-599f-a9e9-93e6b271ba58",
-              "name": "request-termination"
+              "name": "request-termination",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_09-generic-plugins.yaml"
+              ]
             }
           ],
           "strip_path": false,
@@ -76,7 +84,11 @@
                 "status_code": 403
               },
               "id": "ead16074-ccb0-52dd-9f56-4193529e8ffa",
-              "name": "request-termination"
+              "name": "request-termination",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_09-generic-plugins.yaml"
+              ]
             }
           ],
           "strip_path": false,

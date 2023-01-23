@@ -30,7 +30,11 @@
                 "version": "draft4"
               },
               "id": "ce17156b-dfb5-55f0-86b4-9abeb919bae3",
-              "name": "request-validator"
+              "name": "request-validator",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_13-request-validator-plugin.yaml"
+              ]
             }
           ],
           "strip_path": false,
@@ -58,7 +62,11 @@
                 "version": "draft4"
               },
               "id": "2b68c247-3cab-54a1-a98b-cb6100caf370",
-              "name": "request-validator"
+              "name": "request-validator",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_13-request-validator-plugin.yaml"
+              ]
             }
           ],
           "strip_path": false,
@@ -118,7 +126,11 @@
               },
               "enabled": true,
               "id": "2e10f59b-08d4-5566-9330-dfe6fcb471f5",
-              "name": "request-validator"
+              "name": "request-validator",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_13-request-validator-plugin.yaml"
+              ]
             }
           ],
           "strip_path": false,

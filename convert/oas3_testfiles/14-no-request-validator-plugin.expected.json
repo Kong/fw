@@ -45,7 +45,11 @@
                 "version": "draft4"
               },
               "id": "40037e1a-ea6d-5d78-85b2-7f502e4a60e9",
-              "name": "request-validator"
+              "name": "request-validator",
+              "tags": [
+                "OAS3_import",
+                "OAS3file_14-no-request-validator-plugin.yaml"
+              ]
             }
           ],
           "strip_path": false,
