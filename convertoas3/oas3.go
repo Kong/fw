@@ -3,6 +3,7 @@ package convertoas3
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"sort"
 	"strings"
@@ -337,6 +338,15 @@ func insertPlugin(list *[]*map[string]interface{}, plugin *map[string]interface{
 	// it's the last one, append it
 	l := append(*list, plugin)
 	return &l
+}
+
+// MustConvert is the same as Convert, but will panic if an error is returned.
+func MustConvert(content *[]byte, opts O2kOptions) map[string]interface{} {
+	result, err := Convert(content, opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return result
 }
 
 // Convert converts an OpenAPI spec to a Kong declarative file.
