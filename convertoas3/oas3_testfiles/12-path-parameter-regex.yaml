@@ -9,7 +9,9 @@ servers:
   - url: "https://example.com"
 
 paths:
-  /demo/{something}/else/{todo}/:
+  # note that '-to-do' is not a valid regex capture name, hence it must be sanitized
+  # in the output.
+  /demo/{something}/else/{-to-do}/:
     get:
       operationId: opsid
       parameters:

@@ -34,7 +34,7 @@ func (opts *O2kOptions) setDefaults() {
 }
 
 // Slugify converts a name to a valid Kong name by removing and replacing unallowed characters
-// and sanitizing non-latin characters
+// and sanitizing non-latin characters. Multiple inputs will be concatenated using '_'.
 func Slugify(name ...string) string {
 
 	for i, elem := range name {
@@ -42,6 +42,18 @@ func Slugify(name ...string) string {
 	}
 
 	return strings.Join(name, "_")
+}
+
+// sanitizeRegexCapture will remove illegal characters from the path-variable name.
+// The returned name will be valid for PCRE regex captures; Alphanumeric + '_', starting
+// with [a-zA-Z].
+func sanitizeRegexCapture(varName string) string {
+	varName = slugify.Slugify(varName)
+	varName = strings.ReplaceAll(varName, "-", "_")
+	if strings.HasPrefix(varName, "_") {
+		varName = "a" + varName
+	}
+	return varName
 }
 
 // getKongTags returns the provided tags or if nil, then the `x-kong-tags` property,
@@ -731,7 +743,7 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 					varName := match[1]
 					// match single segment; '/', '?', and '#' can mark the end of a segment
 					// see https://github.com/OAI/OpenAPI-Specification/issues/291#issuecomment-316593913
-					regexMatch := "(?<" + varName + ">[^#?/]+)"
+					regexMatch := "(?<" + sanitizeRegexCapture(varName) + ">[^#?/]+)"
 					placeHolder := "{" + varName + "}"
 					path = strings.Replace(path, placeHolder, regexMatch, 1)
 				}

@@ -23,7 +23,7 @@ paths:
       responses:
         "200":
           description: OK
-  /params/{pathid}/:
+  /params/{path-id}/:
     get:
       x-kong-plugin-request-validator:
         enabled: true
@@ -46,7 +46,7 @@ paths:
             type: integer
           required: true
         - in: path
-          name: pathid
+          name: path_id
           schema:
             type: integer
           required: true

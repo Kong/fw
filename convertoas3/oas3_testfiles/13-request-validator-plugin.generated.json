@@ -76,13 +76,13 @@
           ]
         },
         {
-          "id": "970623f5-d00f-5cd5-9071-b4bce41549a8",
+          "id": "6d4dfd63-5d87-5c9d-84dc-9e146b27e4fb",
           "methods": [
             "GET"
           ],
-          "name": "example_params-pathid_get",
+          "name": "example_params-path-id_get",
           "paths": [
-            "~/params/(?\u003cpathid\u003e[^#?/]+)/$"
+            "~/params/(?\u003cpath_id\u003e[^#?/]+)/$"
           ],
           "plugins": [
             {
@@ -116,7 +116,7 @@
                   {
                     "explode": false,
                     "in": "path",
-                    "name": "pathid",
+                    "name": "path_id",
                     "required": true,
                     "schema": "{\"type\":\"integer\"}",
                     "style": "simple"
@@ -125,7 +125,7 @@
                 "version": "draft4"
               },
               "enabled": true,
-              "id": "2e10f59b-08d4-5566-9330-dfe6fcb471f5",
+              "id": "98eedac8-4afc-5f2b-aaa2-d73a1297bca5",
               "name": "request-validator",
               "tags": [
                 "OAS3_import",
