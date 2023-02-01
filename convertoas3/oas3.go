@@ -738,7 +738,9 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 
 			// convert path parameters to regex captures
 			re, _ := regexp.Compile("{([^}]+)}")
+			regexPriority := 200 // non-regexed (no params) paths have higher precedence in OAS
 			if matches := re.FindAllStringSubmatch(path, -1); matches != nil {
+				regexPriority = 100
 				for _, match := range matches {
 					varName := match[1]
 					// match single segment; '/', '?', and '#' can mark the end of a segment
@@ -753,6 +755,7 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 			route["name"] = operationBaseName
 			route["methods"] = []string{method}
 			route["tags"] = kongTags
+			route["regex_priority"] = regexPriority
 			route["strip_path"] = false // TODO: there should be some logic around defaults etc iirc
 
 			operationRoutes = append(operationRoutes, route)

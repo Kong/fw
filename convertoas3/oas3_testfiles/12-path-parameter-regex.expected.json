@@ -20,6 +20,7 @@
             "~/demo/(?<something>[^#?/]+)/else/(?<to_do>[^#?/]+)/$"
           ],
           "plugins": [],
+          "regex_priority": 100,
           "strip_path": false,
           "tags": [
             "OAS3_import",

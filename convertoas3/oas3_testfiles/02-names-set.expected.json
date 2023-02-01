@@ -20,6 +20,7 @@
             "~/app1$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -36,6 +37,7 @@
             "~/app1$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -52,6 +54,7 @@
             "~/app1$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -68,6 +71,7 @@
             "~/app2$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -84,6 +88,7 @@
             "~/app2$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -100,6 +105,7 @@
             "~/app2$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
