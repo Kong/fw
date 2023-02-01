@@ -20,6 +20,7 @@
             "~/help$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -52,6 +53,7 @@
               ]
             }
           ],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",

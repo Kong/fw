@@ -21,6 +21,7 @@
             "~/path1$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -53,6 +54,7 @@
             "~/path2$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -85,6 +87,7 @@
             "~/path2$"
           ],
           "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",

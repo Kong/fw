@@ -37,6 +37,7 @@
               ]
             }
           ],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -69,6 +70,7 @@
               ]
             }
           ],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -133,6 +135,7 @@
               ]
             }
           ],
+          "regex_priority": 100,
           "strip_path": false,
           "tags": [
             "OAS3_import",

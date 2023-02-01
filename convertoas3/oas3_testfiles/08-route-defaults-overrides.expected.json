@@ -20,7 +20,7 @@
             "~/path1$"
           ],
           "plugins": [],
-          "regex_priority": 100,
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
@@ -50,11 +50,11 @@
             "POST"
           ],
           "name": "simple-api-overview_uses-ops-defaults",
-          "plugins": [],
           "paths": [
             "~/path2$"
           ],
-          "regex_priority": 300,
+          "plugins": [],
+          "regex_priority": 200,
           "strip_path": false,
           "tags": [
             "OAS3_import",
