@@ -15,7 +15,7 @@
 # vendor/
 
 # generated test files
-convert/oas3_testfiles/*.generated.json
+convertoas3/oas3_testfiles/*.generated.json
 
 # the binary
 fw
