@@ -17,7 +17,7 @@
           ],
           "name": "path-parameter-test_opsid",
           "paths": [
-            "~/demo/(?<something>[^#?/]+)/else/(?<todo>[^#?/]+)/$"
+            "~/demo/(?<something>[^#?/]+)/else/(?<to_do>[^#?/]+)/$"
           ],
           "plugins": [],
           "strip_path": false,

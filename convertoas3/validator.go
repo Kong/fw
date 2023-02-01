@@ -54,7 +54,11 @@ func generateParameterSchema(operation *openapi3.Operation) *[]map[string]interf
 			paramConf := make(map[string]interface{})
 			paramConf["explode"] = explode
 			paramConf["in"] = paramValue.In
-			paramConf["name"] = paramValue.Name
+			if paramValue.In == "path" {
+				paramConf["name"] = sanitizeRegexCapture(paramValue.Name)
+			} else {
+				paramConf["name"] = paramValue.Name
+			}
 			paramConf["required"] = paramValue.Required
 			paramConf["style"] = getDefaultParamStyle(paramValue.Style, paramValue.In)
 
