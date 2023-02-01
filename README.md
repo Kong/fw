@@ -15,13 +15,4 @@ cat learnservice_oas.yaml | ./fw
 
 ## Things todo
 
-### Organization of project
-
-- testing
-- license information
 - customizable logger
-
-### Code wise
-
-- UUID generation
-- plugin application, on any level

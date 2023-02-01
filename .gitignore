@@ -19,3 +19,6 @@ convertoas3/oas3_testfiles/*.generated.json
 
 # the binary
 fw
+
+# any manually created test files
+kong.yaml
