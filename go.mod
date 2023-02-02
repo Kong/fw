@@ -7,6 +7,7 @@ require (
 	github.com/mozillazg/go-slugify v0.2.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.8.1
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -23,5 +24,5 @@ require (
 	github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/mozillazg/go-unidecode v0.2.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

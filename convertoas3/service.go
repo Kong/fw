@@ -11,6 +11,11 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const (
+	httpScheme  = "http"
+	httpsScheme = "https"
+)
+
 // parseServerUris parses the server uri's after rendering the template variables.
 // result will always have at least 1 entry, but not necessarily a hostname/port/scheme
 func parseServerUris(servers *openapi3.Servers) ([]*url.URL, error) {
@@ -60,10 +65,10 @@ func setServerDefaults(targets []*url.URL, schemeDefault string) {
 			// detect scheme from the port
 			switch target.Port() {
 			case "80":
-				target.Scheme = "http"
+				target.Scheme = httpScheme
 
 			case "443":
-				target.Scheme = "https"
+				target.Scheme = httpsScheme
 
 			default:
 				target.Scheme = schemeDefault
@@ -72,10 +77,10 @@ func setServerDefaults(targets []*url.URL, schemeDefault string) {
 
 		// set the port if unset (but a host is given)
 		if target.Host != "" && target.Port() == "" {
-			if target.Scheme == "http" {
+			if target.Scheme == httpScheme {
 				target.Host = target.Host + ":80"
 			}
-			if target.Scheme == "https" {
+			if target.Scheme == httpsScheme {
 				target.Host = target.Host + ":443"
 			}
 		}
@@ -116,14 +121,14 @@ func createKongUpstream(
 	servers *openapi3.Servers, // the OAS3 server block to use for generation
 	upstreamDefaults []byte, // defaults to use (JSON string) or empty if no defaults
 	tags []string, // tags to attach to the new upstream
-	uuidNamespace uuid.UUID) (map[string]interface{}, error) {
-
+	uuidNamespace uuid.UUID,
+) (map[string]interface{}, error) {
 	var upstream map[string]interface{}
 
 	// have to create an upstream with targets
 	if upstreamDefaults != nil {
 		// got defaults, so apply them
-		json.Unmarshal([]byte(upstreamDefaults), &upstream)
+		_ = json.Unmarshal(upstreamDefaults, &upstream)
 	} else {
 		upstream = make(map[string]interface{})
 	}
@@ -151,7 +156,7 @@ func createKongUpstream(
 		return nil, fmt.Errorf("failed to generate upstream: %w", err)
 	}
 
-	setServerDefaults(targets, "https")
+	setServerDefaults(targets, httpsScheme)
 
 	// now add the targets to the upstream
 	upstreamTargets := make([]map[string]interface{}, len(targets))
@@ -175,8 +180,8 @@ func CreateKongService(
 	serviceDefaults []byte,
 	upstreamDefaults []byte,
 	tags []string,
-	uuidNamespace uuid.UUID) (map[string]interface{}, map[string]interface{}, error) {
-
+	uuidNamespace uuid.UUID,
+) (map[string]interface{}, map[string]interface{}, error) {
 	var (
 		service  map[string]interface{}
 		upstream map[string]interface{}
@@ -184,7 +189,7 @@ func CreateKongService(
 
 	// setup the defaults
 	if serviceDefaults != nil {
-		json.Unmarshal(serviceDefaults, &service)
+		_ = json.Unmarshal(serviceDefaults, &service)
 	} else {
 		service = make(map[string]interface{})
 	}
@@ -203,7 +208,7 @@ func CreateKongService(
 	}
 
 	// fill in the scheme of the url if missing. Use service-defaults for the default scheme
-	scheme := "https"
+	scheme := httpsScheme
 	if service["protocol"] != nil {
 		scheme = service["protocol"].(string)
 	}
@@ -222,7 +227,7 @@ func CreateKongService(
 			service["port"], _ = strconv.ParseInt(targets[0].Port(), 10, 16)
 		} else {
 			// no port provided, so set it based on scheme, where https/443 is the default
-			if scheme != "http" {
+			if scheme != httpScheme {
 				service["port"] = 443
 			} else {
 				service["port"] = 80

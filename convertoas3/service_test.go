@@ -9,7 +9,6 @@ import (
 )
 
 func Test_parseServerUris(t *testing.T) {
-
 	// basics
 
 	servers := &openapi3.Servers{
@@ -25,7 +24,7 @@ func Test_parseServerUris(t *testing.T) {
 			Host:   "cookiemonster.com",
 			Path:   "/chocolate/cookie",
 		}, {
-			Scheme: "https",
+			Scheme: httpsScheme,
 			Host:   "konghq.com",
 			Path:   "/bitter/sweet",
 		},
@@ -113,14 +112,12 @@ func Test_parseServerUris(t *testing.T) {
 	if diff := cmp.Diff(targets, expected); diff != "" {
 		t.Errorf(diff)
 	}
-
 }
 
 func Test_setServerDefaults(t *testing.T) {
-
 	defaultTests := []struct {
 		name      string
-		inUrl     string
+		inURL     string
 		outPort   string
 		outScheme string
 	}{
@@ -130,8 +127,8 @@ func Test_setServerDefaults(t *testing.T) {
 	}
 
 	for _, tst := range defaultTests {
-		inUrl, _ := url.Parse(tst.inUrl)
-		urls := []*url.URL{inUrl}
+		inURL, _ := url.Parse(tst.inURL)
+		urls := []*url.URL{inURL}
 		setServerDefaults(urls, "https")
 		if urls[0].Port() != tst.outPort {
 			t.Errorf("%s: expected port to be '%s', but got '%s'", tst.name, tst.outPort, urls[0].Port())

@@ -8,11 +8,11 @@ import (
 
 	"github.com/Kong/fw/convertoas3"
 	uuid "github.com/satori/go.uuid"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 const (
-	defaultJsonIndent = "  "
+	defaultJSONIndent = "  "
 )
 
 // mustSerialize will serialize the result as a JSON/YAML. Will panic
@@ -29,7 +29,7 @@ func mustSerialize(content map[string]interface{}, asYaml bool) []byte {
 			log.Fatal("failed to yaml-serialize the resulting file; %w", err)
 		}
 	} else {
-		str, err = json.MarshalIndent(content, "", defaultJsonIndent)
+		str, err = json.MarshalIndent(content, "", defaultJSONIndent)
 		if err != nil {
 			log.Fatal("failed to json-serialize the resulting file; %w", err)
 		}
@@ -41,7 +41,6 @@ func mustSerialize(content map[string]interface{}, asYaml bool) []byte {
 // mustWriteFile writes the output to a file in JSON/YAML format. Will panic
 // if writing fails.
 func mustWriteFile(filename string, content []byte) {
-
 	var f *os.File
 	var err error
 
@@ -84,7 +83,7 @@ func main() {
 	options := convertoas3.O2kOptions{
 		// Tags:          &tags,
 		DocName:       docName,
-		UuidNamespace: uuidNamespace,
+		UUIDNamespace: uuidNamespace,
 	}
 
 	content := mustReadFile(filenameIn)

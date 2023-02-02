@@ -13,7 +13,6 @@ import (
 const fixturePath = "./oas3_testfiles/"
 
 func Test_ConvertOas3(t *testing.T) {
-
 	files, err := os.ReadDir(fixturePath)
 	if err != nil {
 		t.Error("failed reading test data: %w", err)
@@ -32,9 +31,10 @@ func Test_ConvertOas3(t *testing.T) {
 				t.Error(fmt.Sprintf("'%s' didn't expect error: %%w", fixturePath+fileNameIn), err)
 			} else {
 				JSONOut, _ := json.MarshalIndent(dataOut, "", "  ")
-				os.WriteFile(fixturePath+fileNameOut, JSONOut, 0666)
+				os.WriteFile(fixturePath+fileNameOut, JSONOut, 0o600)
 				JSONExpected, _ := os.ReadFile(fixturePath + fileNameExpected)
-				assert.JSONEq(t, string(JSONExpected), string(JSONOut), "'%s': the JSON blobs should be equal", fixturePath+fileNameIn)
+				assert.JSONEq(t, string(JSONExpected), string(JSONOut),
+					"'%s': the JSON blobs should be equal", fixturePath+fileNameIn)
 			}
 		}
 	}
