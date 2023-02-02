@@ -50,7 +50,7 @@ func extractSchema(s *openapi3.SchemaRef) string {
 	var finalSchema map[string]interface{}
 	// copy the primary schema
 	jConf, _ := s.MarshalJSON()
-	json.Unmarshal(jConf, &finalSchema)
+	_ = json.Unmarshal(jConf, &finalSchema)
 
 	// inject subschema's referenced
 	if len(seenBefore) > 0 {
@@ -59,7 +59,7 @@ func extractSchema(s *openapi3.SchemaRef) string {
 			// copy the subschema
 			var copySchema map[string]interface{}
 			jConf, _ := schema.MarshalJSON()
-			json.Unmarshal(jConf, &copySchema)
+			_ = json.Unmarshal(jConf, &copySchema)
 
 			// store under new key
 			definitions[strings.Replace(key, "#/components/schemas/", "", 1)] = copySchema

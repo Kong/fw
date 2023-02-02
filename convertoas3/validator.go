@@ -9,6 +9,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const JSONSchemaVersion = "draft4"
+
 // getDefaultParamStyles returns default styles per OAS parameter-type.
 func getDefaultParamStyle(givenStyle string, paramType string) string {
 	// should be a constant, but maps cannot be constants
@@ -78,7 +80,6 @@ func generateParameterSchema(operation *openapi3.Operation) *[]map[string]interf
 // generateBodySchema returns the given schema if there is one, a generated
 // schema if it was specified, or "" if there is none.
 func generateBodySchema(operation *openapi3.Operation) string {
-
 	requestBody := operation.RequestBody
 	if requestBody == nil {
 		return ""
@@ -106,7 +107,6 @@ func generateBodySchema(operation *openapi3.Operation) string {
 // generateContentTypes returns an array of allowed content types. nil if none.
 // Returned array will be sorted by name for deterministic comparisons.
 func generateContentTypes(operation *openapi3.Operation) *[]string {
-
 	requestBody := operation.RequestBody
 	if requestBody == nil {
 		return nil
@@ -139,20 +139,21 @@ func generateContentTypes(operation *openapi3.Operation) *[]string {
 
 // generateValidatorPlugin generates the validator plugin configuration, based
 // on the JSON snippet, and the OAS inputs. This can return nil
-func generateValidatorPlugin(configJson []byte, operation *openapi3.Operation,
+func generateValidatorPlugin(configJSON []byte, operation *openapi3.Operation,
 	uuidNamespace uuid.UUID,
-	baseName string) *map[string]interface{} {
-	if len(configJson) == 0 {
+	baseName string,
+) *map[string]interface{} {
+	if len(configJSON) == 0 {
 		return nil
 	}
 
 	var pluginConfig map[string]interface{}
-	json.Unmarshal(configJson, &pluginConfig)
+	_ = json.Unmarshal(configJSON, &pluginConfig)
 
 	// create a new ID here based on the operation
-	pluginConfig["id"] = createPluginId(uuidNamespace, baseName, pluginConfig)
+	pluginConfig["id"] = createPluginID(uuidNamespace, baseName, pluginConfig)
 
-	config, _ := toJsonObject(pluginConfig["config"])
+	config, _ := toJSONObject(pluginConfig["config"])
 	if config == nil {
 		config = make(map[string]interface{})
 		pluginConfig["config"] = config
@@ -162,7 +163,7 @@ func generateValidatorPlugin(configJson []byte, operation *openapi3.Operation,
 		parameterSchema := generateParameterSchema(operation)
 		if parameterSchema != nil {
 			config["parameter_schema"] = parameterSchema
-			config["version"] = "draft4"
+			config["version"] = JSONSchemaVersion
 		}
 	}
 
@@ -170,7 +171,7 @@ func generateValidatorPlugin(configJson []byte, operation *openapi3.Operation,
 		bodySchema := generateBodySchema(operation)
 		if bodySchema != "" {
 			config["body_schema"] = bodySchema
-			config["version"] = "draft4"
+			config["version"] = JSONSchemaVersion
 		} else {
 			if config["parameter_schema"] == nil {
 				// neither parameter nor body schema given, there is nothing to validate
@@ -178,12 +179,11 @@ func generateValidatorPlugin(configJson []byte, operation *openapi3.Operation,
 				if config["allowed_content_types"] == nil {
 					// also not provided, so really nothing to validate, don't add a plugin
 					return nil
-				} else {
-					// add an empty schema, which passes everything, but it also activates the
-					// content-type check
-					config["body_schema"] = "{}"
-					config["version"] = "draft4"
 				}
+				// add an empty schema, which passes everything, but it also activates the
+				// content-type check
+				config["body_schema"] = "{}"
+				config["version"] = JSONSchemaVersion
 			}
 		}
 	}
