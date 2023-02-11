@@ -740,6 +740,7 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 			var route map[string]interface{}
 			if operationRouteDefaults != nil {
 				_ = json.Unmarshal(operationRouteDefaults, &route)
+				delete(route, "service") // always clear foreign keys to services, not allowed
 			} else {
 				route = make(map[string]interface{})
 			}
