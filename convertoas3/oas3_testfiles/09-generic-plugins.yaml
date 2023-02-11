@@ -3,6 +3,8 @@
 #
 # if the same plugin is on a path and operation, the operation one wins (to be
 # attached to a route).
+#
+# Plugin-defaults cannot have foreign-keys to service/route entities (ignored)
 
 openapi: '3.0.0'
 info:
@@ -17,6 +19,9 @@ x-kong-plugin-request-termination:
   config:
     status_code: 403
     message: So long and thanks for all the fish!
+  # foreign keys to be ignored
+  service: delete-me
+  route: delete-me-to
 
 paths:
   /path1:
@@ -36,6 +41,9 @@ paths:
       config:
         status_code: 403
         message: The answer to life, the universe, and everything!
+      # foreign keys to be ignored
+      service: delete-me
+      route: delete-me-to
     get:
       # gets the plugin from the path-level, attached on route-entity
       operationId: uses-path-plugin
@@ -52,6 +60,9 @@ paths:
         config:
           status_code: 403
           message: For a moment, nothing happened. Then, after a second or so, nothing continued to happen.
+        # foreign keys to be ignored
+        service: delete-me
+        route: delete-me-to
       operationId: uses-ops-plugin
       summary: List API versions
       responses:

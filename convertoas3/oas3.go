@@ -275,21 +275,17 @@ func getPluginsList(
 
 				var pluginConfig map[string]interface{}
 				err = json.Unmarshal(jsonstr, &pluginConfig)
-				// err := json.Unmarshal(jsonBytes.(json.RawMessage), &pluginConfig)
 				if err != nil {
 					return nil, fmt.Errorf(fmt.Sprintf("failed to parse JSON object for '%s': %%w", extensionName), err)
 				}
 
-				if pluginConfig["name"] == nil {
-					pluginConfig["name"] = pluginName
-				} else {
-					if pluginConfig["name"] != pluginName {
-						return nil, fmt.Errorf("extension '%s' specifies a different name than the config; '%s'",
-							extensionName, pluginName)
-					}
-				}
+				pluginConfig["name"] = pluginName
 				pluginConfig["id"] = createPluginID(uuidNamespace, baseName, pluginConfig)
 				pluginConfig["tags"] = tags
+
+				// foreign keys to service+route are not allowed (consumer is allowed)
+				delete(pluginConfig, "service")
+				delete(pluginConfig, "route")
 
 				plugins[pluginName] = &pluginConfig
 			}
