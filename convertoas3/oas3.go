@@ -792,6 +792,12 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 			// attach the collected plugins configs to the route
 			route["plugins"] = operationPluginList
 
+			// Escape path contents for regex creation
+			charsToEscape := []string{"(", ")", ".", "+", "?", "*", "["}
+			for _, char := range charsToEscape {
+				path = strings.ReplaceAll(path, char, "\\"+char)
+			}
+
 			// convert path parameters to regex captures
 			re, _ := regexp.Compile("{([^}]+)}")
 			regexPriority := 200 // non-regexed (no params) paths have higher precedence in OAS
