@@ -350,6 +350,41 @@ func insertPlugin(list *[]*map[string]interface{}, plugin *map[string]interface{
 	return &l
 }
 
+// getForeignKeyPlugins checks the pluginList for plugins that also have a foreign key
+// for a consumer, and moves them to the docPlugins array. Returns update docPlugins and pluginList.
+func getForeignKeyPlugins(
+	docPlugins *[]*map[string]interface{},
+	pluginList *[]*map[string]interface{},
+	foreignKey string, foreignValue string,
+) (*[]*map[string]interface{}, *[]*map[string]interface{}) {
+	var genericPlugins []*map[string]interface{}
+	if docPlugins == nil {
+		genericPlugins = make([]*map[string]interface{}, 0)
+	} else {
+		genericPlugins = *docPlugins
+	}
+
+	var entityPlugins []*map[string]interface{}
+	if pluginList == nil {
+		entityPlugins = make([]*map[string]interface{}, 0)
+	} else {
+		entityPlugins = *pluginList
+	}
+
+	newPluginList := make([]*map[string]interface{}, 0)
+	for _, plugin := range entityPlugins {
+		if (*plugin)["consumer"] == nil {
+			// single key, so leave it, just append to outgoing slice
+			newPluginList = append(newPluginList, plugin)
+		} else {
+			// multiple foreign keys, so this one needs to move over
+			(*plugin)[foreignKey] = foreignValue // set foreign ref to either service or route
+			genericPlugins = append(genericPlugins, plugin)
+		}
+	}
+	return &genericPlugins, &newPluginList
+}
+
 // MustConvert is the same as Convert, but will panic if an error is returned.
 func MustConvert(content *[]byte, opts O2kOptions) map[string]interface{} {
 	result, err := Convert(content, opts)
@@ -384,6 +419,7 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 		docRouteDefaults    []byte                     // JSON string representation of route-defaults on document level
 		docPluginList       *[]*map[string]interface{} // array of plugin configs, sorted by plugin name
 		docValidatorConfig  []byte                     // JSON string representation of validator config to generate
+		foreignKeyPlugins   *[]*map[string]interface{} // top-level array of plugin configs, sorted by plugin name+id
 
 		pathBaseName         string                     // the slugified basename for the path
 		pathServers          *openapi3.Servers          // servers block on current path level
@@ -473,6 +509,10 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 
 	// Extract the request-validator config from the plugin list
 	docValidatorConfig, docPluginList = getValidatorPlugin(docPluginList, docValidatorConfig)
+
+	// move consumer bound plugins to doc level plugins list (multiple foreign keys)
+	foreignKeyPlugins, docPluginList = getForeignKeyPlugins(
+		foreignKeyPlugins, docPluginList, "service", docService["name"].(string))
 
 	docService["plugins"] = docPluginList
 
@@ -564,6 +604,10 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 
 			// Extract the request-validator config from the plugin list
 			pathValidatorConfig, pathPluginList = getValidatorPlugin(pathPluginList, docValidatorConfig)
+
+			// move consumer bound plugins to doc level plugins list (multiple foreign keys)
+			foreignKeyPlugins, pathPluginList = getForeignKeyPlugins(
+				foreignKeyPlugins, pathPluginList, "service", pathService["name"].(string))
 
 			pathService["plugins"] = pathPluginList
 
@@ -741,6 +785,10 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 				route = make(map[string]interface{})
 			}
 
+			// move consumer bound plugins to doc level plugins list (multiple foreign keys)
+			foreignKeyPlugins, operationPluginList = getForeignKeyPlugins(
+				foreignKeyPlugins, operationPluginList, "route", operationBaseName)
+
 			// attach the collected plugins configs to the route
 			route["plugins"] = operationPluginList
 
@@ -771,9 +819,20 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 		}
 	}
 
-	// export array with services and upstreams to the final object
+	// export arrays with services, upstreams, and plugins to the final object
 	result["services"] = services
 	result["upstreams"] = upstreams
+	if len(*foreignKeyPlugins) > 0 {
+		sort.Slice(*foreignKeyPlugins,
+			func(i, j int) bool {
+				p1 := *(*foreignKeyPlugins)[i]
+				p2 := *(*foreignKeyPlugins)[j]
+				k1 := p1["name"].(string) + p1["id"].(string)
+				k2 := p2["name"].(string) + p2["id"].(string)
+				return k1 < k2
+			})
+		result["plugins"] = foreignKeyPlugins
+	}
 
 	// we're done!
 	return result, nil
