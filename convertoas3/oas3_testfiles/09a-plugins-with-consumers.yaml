@@ -1,10 +1,7 @@
-# x-kong-plugin-<name> are accepted on each level. The document level plugins
-# end up on the service. The path and operation level plugins on the route.
+# x-kong-plugin-<name> can carry a consumer id. Those plugins must be added
+# on the top-level of the output because they have 2 foreign keys.
 #
-# if the same plugin is on a path and operation, the operation one wins (to be
-# attached to a route).
-#
-# Plugin-defaults cannot have foreign-keys to service/route entities (ignored)
+# the top-level plugins array should be lexically sorted by plugin-name + ID
 
 openapi: '3.0.0'
 info:
@@ -19,9 +16,8 @@ x-kong-plugin-request-termination:
   config:
     status_code: 403
     message: So long and thanks for all the fish!
-  # foreign keys to be ignored
-  service: delete-me
-  route: delete-me-to
+  # foreign keys to consumer
+  consumer: johndoe1
 
 paths:
   /path1:
@@ -41,9 +37,8 @@ paths:
       config:
         status_code: 403
         message: The answer to life, the universe, and everything!
-      # foreign keys to be ignored
-      service: delete-me
-      route: delete-me-to
+      # foreign keys to consumer
+      consumer: johndoe2
     get:
       # gets the plugin from the path-level, attached on route-entity
       operationId: uses-path-plugin
@@ -60,9 +55,8 @@ paths:
         config:
           status_code: 403
           message: For a moment, nothing happened. Then, after a second or so, nothing continued to happen.
-        # foreign keys to be ignored
-        service: delete-me
-        route: delete-me-to
+        # foreign keys to consumer
+        consumer: johndoe3
       operationId: uses-ops-plugin
       summary: List API versions
       responses:
