@@ -3,6 +3,7 @@ package filebasics
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -13,14 +14,20 @@ const (
 	defaultJSONIndent = "  "
 )
 
-// mustReadFile reads file contents. Will panic if reading fails.
+// MustReadFile reads file contents. Will panic if reading fails.
 // Reads from stdin if filename == "-"
 func MustReadFile(filename string) *[]byte {
+	var (
+		body []byte
+		err  error
+	)
+
 	if filename == "-" {
-		filename = "/dev/stdin"
+		body, err = io.ReadAll(os.Stdin)
+	} else {
+		body, err = os.ReadFile(filename)
 	}
 
-	body, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("unable to read file: %v", err)
 	}
