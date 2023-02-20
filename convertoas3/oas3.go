@@ -539,9 +539,17 @@ func Convert(content *[]byte, opts O2kOptions) (map[string]interface{}, error) {
 			return nil, err
 		}
 		if pathBaseName == "" {
-			pathBaseName = path
+			pathBaseName = Slugify(path)
+			if strings.HasSuffix(path, "/") {
+				// a common case is 2 paths, one with and one without a trailing "/" so to prevent
+				// duplicate names being generated, we add a "~" suffix as a special case to cater
+				// for different names. Better user solution is to use operation-id's.
+				pathBaseName = pathBaseName + "~"
+			}
+		} else {
+			pathBaseName = Slugify(pathBaseName)
 		}
-		pathBaseName = docBaseName + "_" + Slugify(pathBaseName)
+		pathBaseName = docBaseName + "_" + pathBaseName
 
 		// Set up the defaults on the Path level
 		newPathService := false

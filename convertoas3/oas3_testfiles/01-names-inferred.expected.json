@@ -28,11 +28,11 @@
           ]
         },
         {
-          "id": "5e0d04cc-9c83-5ffd-817d-2230100812b0",
+          "id": "2ab3e49d-7565-5ac2-aaee-18d060e2e712",
           "methods": [
             "POST"
           ],
-          "name": "simple-api-overview__post",
+          "name": "simple-api-overview_~_post",
           "paths": [
             "~/$"
           ],
