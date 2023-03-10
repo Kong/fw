@@ -1,3 +1,8 @@
+| :exclamation:  Important deprecation notice |
+|:---------------------------|
+| This repository has been merged into the [`kced` repository](https://github.com/Kong/kced/). It will most likely be deleted shortly. |
+
+
 # O2K replacement
 
 ## Status
